@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package netwalk;
+
+import "google/protobuf/timestamp.proto";
+
+service MeasurementService {
+  rpc SaveMeasurement (MeasurementData) returns (SaveResponse);
+}
+
+message MeasurementData {
+
+  string session_id = 1;
+  string imsi = 2;
+  string imei = 3;
+
+  google.protobuf.Timestamp timestamp = 4;
+  double location_lat = 5;
+  double location_lon = 6;
+
+  int32 rsrp = 7;
+  int32 sinr = 8;
+  string network_type = 9;
+  string cell_id = 10;
+
+
+  int32 battery_level = 11;
+  double processor_temp = 12;
+  string os_version = 13;
+
+
+  double throughput_mbps = 14;
+  google.protobuf.Timestamp test_start_time = 15;
+  google.protobuf.Timestamp test_end_time = 16;
+}
+
+message SaveResponse {
+  bool success = 1;
+  string message = 2;
+}
