@@ -1,0 +1,19 @@
+[project]
+name = "netwalk-backend"
+version = "0.1.0"
+description = "Backend for NetWalk project"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "psycopg2-binary"
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
