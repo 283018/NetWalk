@@ -4,7 +4,6 @@ services:
     container_name: ZPI2026
     environment:
       - POSTGRES_USER=netwalk
-      - POSTGRES_PASSWORD=niestandard123walk
       - POSTGRES_DB=pomiary
     ports:
       - "5433:5432"

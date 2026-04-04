@@ -1,35 +1,26 @@
 CREATE TABLE measurements (
-
-    id BIGSERIAL,
+    id BIGSERIAL PRIMARY KEY,
     session_id UUID NOT NULL,
-    imsi TEXT NOT NULL,                 -- ID karty SIM
-    imei TEXT,                          -- ID urządzenia
+    imsi TEXT NOT NULL,
+    imei TEXT,
 
+    timestamp TIMESTAMPTZ NOT NULL,
 
-    timestamp TIMESTAMPTZ NOT NULL,     -- czas z GPSa
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
 
-
-    location_lat DOUBLE PRECISION,      -- szerokość geograficzna
-    location_lon DOUBLE PRECISION,      -- długość geograficzna
-
-
-    rsrp INTEGER,                       -- siła sygnału
-    sinr INTEGER,                       -- jakość sygnału
+    rsrp INTEGER,
+    sinr INTEGER,
     network_type TEXT,
-    cell_id TEXT,                       -- ID nadajnika
-
+    cell_id TEXT,
 
     battery_level INTEGER,
     processor_temp DOUBLE PRECISION,
     os_version TEXT,
 
-
-    throughput_mbps DOUBLE PRECISION,   -- test prędkości
+    throughput_mbps DOUBLE PRECISION,
     test_start_time TIMESTAMPTZ,
-    test_end_time TIMESTAMPTZ,
-
-    PRIMARY KEY (id, timestamp)
+    test_end_time TIMESTAMPTZ
 );
-
 
 SELECT create_hypertable('measurements', 'timestamp');
