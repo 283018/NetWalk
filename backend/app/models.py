@@ -1,5 +1,6 @@
+from geoalchemy2 import Geography
 from sqlalchemy import TIMESTAMP, Column, Float, Index, Integer, String
-from sqlalchemy.dialects.postgresql import GEOGRAPHY, UUID
+from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base
 
@@ -19,7 +20,7 @@ class Measurement(Base):
     measured_at = Column(TIMESTAMP(timezone=True), nullable=False)
 
     # lokalizacja
-    location = Column(GEOGRAPHY(geometry_type="POINT", srid=4326))
+    location = Column(Geography(geometry_type="POINT", srid=4326))
     latitude = Column(Float)
     longitude = Column(Float)
 
