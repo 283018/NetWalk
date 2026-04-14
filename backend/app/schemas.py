@@ -22,6 +22,18 @@ class MeasurementCreate(BaseModel):
     test_start_time: datetime | None = None
     test_end_time: datetime | None = None
 
+    def to_db_dict(self) -> dict:
+        """
+        Converts API filds to SQLAlchemy model field.
+        """
+        data = self.model_dump(exclude={"latitude", "longitude"})
+        if self.latitude is not None and self.longitude is not None:
+            # PostGIS WKT format: "POINT(longitude latitude)"
+            data["location"] = f"POINT({self.longitude} {self.latitude})"
+        return data
+
+    model_config = {"from_attributes": True}
+
 
 class MeasurementBatch(BaseModel):
     measurements: list[MeasurementCreate]

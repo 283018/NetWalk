@@ -1,6 +1,8 @@
 from geoalchemy2 import Geography
+from geoalchemy2.shape import to_shape
 from sqlalchemy import TIMESTAMP, Column, Float, Index, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.hybrid import hybrid_property
 
 from app.database import Base
 
@@ -20,9 +22,15 @@ class Measurement(Base):
     measured_at = Column(TIMESTAMP(timezone=True), nullable=False)
 
     # lokalizacja
-    location = Column(Geography(geometry_type="POINT", srid=4326))
-    latitude = Column(Float)
-    longitude = Column(Float)
+    location = Column(
+        Geography(
+            geometry_type="POINT",
+            srid=4326,
+            spatial_index=True,
+        )
+    )
+    # przechowujemy pojedyncze lokalizacje w bazie
+    # latitude/longitude jest dynamicznie rozdzielane w aplikacji lub querry
 
     # parametry sieci
     rsrp = Column(Integer)
@@ -49,3 +57,11 @@ class Measurement(Base):
         Index("idx_measurements_time", measured_at),
         Index("idx_measurement_cell", cell_id),
     )
+
+    @hybrid_property
+    def latitude(self) -> float | None:
+        return to_shape(self.location).y if self.location else None
+
+    @hybrid_property
+    def longitude(self) -> float | None:
+        return to_shape(self.location).x if self.location else None
