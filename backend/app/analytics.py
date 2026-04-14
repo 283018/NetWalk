@@ -1,12 +1,13 @@
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
 from app.models import Measurement
 
 
 def average_signal(db: Session):
     result = db.query(
         func.avg(Measurement.rsrp).label("avg_rsrp"),
-        func.avg(Measurement.sinr).label("avg_sinr")
+        func.avg(Measurement.sinr).label("avg_sinr"),
     ).first()
 
     return {

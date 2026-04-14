@@ -5,17 +5,78 @@ description = "Backend for NetWalk project"
 requires-python = ">=3.12,<3.14"
 
 dependencies = [
-    "fastapi>=0.135.3",
-    "psycopg2-binary>=2.9.11",
-    "pydantic>=2.13.0",
-    "pydantic-settings>=2.13.1",
-    "sqlalchemy>=2.0.49",
-    "uvicorn>=0.44.0",
+  "fastapi>=0.135.3",
+  "psycopg2-binary>=2.9.11",
+  "pydantic>=2.13.0",
+  "pydantic-settings>=2.13.1",
+  "ruff>=0.15.10",
+  "sqlalchemy>=2.0.49",
+  "uvicorn>=0.44.0",
 ]
 
 [tool.ruff]
-line-length = 88
+exclude = [
+  ".git",
+  ".venv",
+  ".ruff_cache",
+  "__pycache__",
+  "build",
+  "dist",
+  ".pytest_cache",
+  ".vscode",
+  ".idea",
+]
+line-length = 100
+indent-width = 4
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "UP",
+  "A",
+  "B",
+  "C4",
+  "SIM",
+  "N",
+  "RET",
+  "ARG",
+  "TRY",
+  "EM",
+  "S",
+  "DTZ",
+  "LOG",
+  "PTH",
+  "PERF",
+  "PL",
+  "PT",
+  "TD",
+  "FIX",
+  "PGH",
+  "T20",
+  "RUF",
+]
+ignore = [
+  "ANN",
+  "EXE",
+  "TID",
+  "C90",
+  "T10",
+  "DJ",
+  "D",
+  "E402",
+  "E501",
+  "TRY003",
+  "TD002",
+  "TD003",
+  "TD004",
+  "FIX002",
+  "C408",
+  "PLR0912",
+  "PGH004",
+  "RUF100",
+  "COM812",
+]
