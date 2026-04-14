@@ -44,7 +44,7 @@ class Measurement(Base):
 
     # indeksy do wydajności
     __table_args__ = (
-        Index("ids_measurements_location", location, postgersql_using="gist"),
-        Index("idx_measurements_time", measure_at),
+        Index("ids_measurements_location", location, postgresql_using="gist"),
+        Index("idx_measurements_time", measured_at),
         Index("idx_measurement_cell", cell_id),
     )
