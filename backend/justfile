@@ -1,0 +1,51 @@
+# odpalać za pomocą:
+# just <command>
+
+# łąduje dane z .env
+set dotenv-load := true
+
+default:
+    @echo "Commands:"
+    @just --list
+
+# postaw kontener postgres
+up:
+    docker compose up -d
+
+# zatrzymaj kontener
+down:
+    docker compose down
+
+# zatrzymaj kontner i usuć dane
+down-remove:
+    docker compose down -v
+
+# zrestartuj kontener (usuwa dane)
+reset: down-remove up
+
+# odpal serwer
+serve:
+    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# healthcheck
+test-health:
+    curl -s http://localhost:8000/health | jq .
+
+# test wysyłania
+test-batch:
+    curl -X POST http://localhost:8000/measurements/batch \
+    -H "Content-Type: application/json" \
+    -d @tests/data/example_payload.json \
+    | jq .
+
+# test ostatnich przesłanych
+test-get:
+    curl -s http://localhost:8000/measurements | jq '.[:2]'
+
+# pełny test
+test-all: test-health test-batch test-get
+    @echo "Tests passed"
+
+# odpal postgres shell
+db-shell:
+  @docker exec -it ZPI2026 psql -U $POSTGRES_USER -d $POSTGRES_DB
