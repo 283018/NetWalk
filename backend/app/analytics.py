@@ -10,6 +10,9 @@ def average_signal(db: Session):
         func.avg(Measurement.sinr).label("avg_sinr"),
     ).first()
 
+    if result is None:
+        return {"avg_rsrp": None, "avg_sinr": None}
+
     return {
         "avg_rsrp": float(result.avg_rsrp) if result.avg_rsrp else None,
         "avg_sinr": float(result.avg_sinr) if result.avg_sinr else None,
