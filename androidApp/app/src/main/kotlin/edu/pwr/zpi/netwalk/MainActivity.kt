@@ -20,7 +20,6 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.Color
 
 class MainActivity : ComponentActivity() {
-
     lateinit var tm: TelephonyManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,64 +43,61 @@ fun NetworkInfoScreen(tm: TelephonyManager) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // Potrzebujemy pytać się o dwa zezwolenia (dla cellInfo) - READ_PHONE_STATE i ACCES_FINE_LOCATION
-    val permissions = arrayOf(
-        Manifest.permission.READ_PHONE_STATE,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    )
+    val permissions =
+        arrayOf(
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
 
     // Żadanie pozwoleń
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        // Jeżeli nie ma klucza (?: false) traktujemy prośbę jako odrzuconą
-        val readGranted = results[Manifest.permission.READ_PHONE_STATE]?: false
-        val locationGranted = results[Manifest.permission.ACCESS_FINE_LOCATION]?: false
-        networkText = if (readGranted && locationGranted) {
-            val networkType = tm.dataNetworkType
-            val cellInfo = tm.allCellInfo
-            val typeText = when (networkType) {
-                TelephonyManager.NETWORK_TYPE_NR -> "5G"
-                TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-                else -> "$networkType"
-            }
-            "Network type: $typeText\nCell info: $cellInfo"
-        } else {
-            "Permissions denied"
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestMultiplePermissions(),
+        ) { results ->
+            // Jeżeli nie ma klucza (?: false) traktujemy prośbę jako odrzuconą
+            val readGranted = results[Manifest.permission.READ_PHONE_STATE] ?: false
+            val locationGranted = results[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+            networkText =
+                if (readGranted && locationGranted) {
+                    val networkType = tm.dataNetworkType
+                    val cellInfo = tm.allCellInfo
+                    val typeText =
+                        when (networkType) {
+                            TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                            TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                            else -> "$networkType"
+                        }
+                    "Network type: $typeText\nCell info: $cellInfo"
+                } else {
+                    "Permissions denied"
+                }
         }
-    }
 
-
-
-    val allGranted = permissions.all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }
+    val allGranted =
+        permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
 
     if (!allGranted) {
         SideEffect {
             permissionLauncher.launch(permissions)
         }
     } else {
-
         val networkType = tm.dataNetworkType
         val cellInfo = tm.allCellInfo
-        val typeText = when (networkType) {
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
-            TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-            else -> "$networkType"
-        }
+        val typeText =
+            when (networkType) {
+                TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                else -> "$networkType"
+            }
         networkText = "Network type: $typeText\nCell info: $cellInfo"
     }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = networkText,
-            color = Color.White)
+        Text(
+            text = networkText,
+            color = Color.White,
+        )
     }
 }
-    /*
-    fun requestCellinfo(){
-        tm.requestCellInfoUpdate()
-
-    }
-    */
-
-
