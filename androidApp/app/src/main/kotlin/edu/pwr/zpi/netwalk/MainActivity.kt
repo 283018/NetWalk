@@ -40,7 +40,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@SuppressLint("MissingPermission")
 @Composable
 fun NetworkInfoScreen(tm: TelephonyManager) {
     var networkText by remember { mutableStateOf("Checking permissions...") }
