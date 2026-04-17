@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "edu.pwr.zpi.netwalk"
-        minSdk = 29 // 29 API potrzebne dla requestCellInfoUpdate
+        minSdk = 30 // 29 API potrzebne dla requestCellInfoUpdate
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
