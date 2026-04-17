@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "edu.pwr.zpi.netwalk"
-        minSdk = 24
+        minSdk = 29 // 29 API potrzebne dla requestCellInfoUpdate
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
@@ -25,12 +25,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlin {
-        jvmToolchain(17)
-    }
-
     // TODO: change name of produced apk
 }
+
+kotlin {
+    jvmToolchain(17)
+}
+
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.03.01"))
