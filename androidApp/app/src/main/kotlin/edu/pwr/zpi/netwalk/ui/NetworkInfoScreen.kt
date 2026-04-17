@@ -100,9 +100,11 @@ fun LteCellView(cell: LteNetworkInfo, color: Color = Color.White) {
             append(if (cell.isServing) "LTE (Serving)\n" else "LTE (Neighbor)\n")
             append("PCI: ${cell.pci}\n")
             append("EARFCN: ${cell.earfcn}\n")
-            append("Bandwith: ${cell.bandwidth}\n")
+            append("TAC: ${cell.tac}\n")
+            append("Band number: ${cell.bands.joinToString()}\n")
             append("RSRP: ${cell.rsrp} dBm\n")
             append("RSRQ: ${cell.rsrq} dB\n")
+            append("RSSI: ${cell.rssi} dBm\n")
             append("SINR: ${cell.sinr} dB\n")
         },
         color = color
@@ -116,7 +118,8 @@ fun NrCellView(cell: NrNetworkInfo, color: Color = Color.White) {
             append(if (cell.isServing) "5G (Serving)\n" else "5G (Neighbor)\n")
             append("PCI: ${cell.pci}\n")
             append("NR-ARFCN: ${cell.nrarfcn}\n")
-            append("Band: ${cell.bands.joinToString()}\n")
+            append("TAC: ${cell.tac}\n")
+            append("Band number: ${cell.bands.joinToString()}\n")
             append("RSRP: ${cell.ssRsrp}\n")
             append("RSRQ: ${cell.ssRsrq}\n")
             append("SINR: ${cell.ssSinr}\n")

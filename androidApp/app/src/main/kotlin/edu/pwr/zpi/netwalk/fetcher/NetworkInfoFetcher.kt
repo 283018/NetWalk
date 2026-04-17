@@ -17,9 +17,11 @@ data class LteNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
     val earfcn: Int,
-    val bandwidth: Int,
+    val tac: Int,
+    val bands: List<Int>,
     val rsrp: Int,
     val rsrq: Int,
+    val rssi: Int,
     val sinr: Int
 )
 
@@ -27,6 +29,7 @@ data class NrNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
     val nrarfcn: Int,
+    val tac: Int,
     val bands: List<Int>,
     val ssRsrp: Int,
     val ssRsrq: Int,
@@ -47,9 +50,11 @@ fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
         isServing = cell.isRegistered,
         pci = id.pci,
         earfcn = id.earfcn,
-        bandwidth = id.bandwidth,
+        tac = id.tac,
+        bands = id.bands.toList(),
         rsrp = signal.rsrp,
         rsrq = signal.rsrq,
+        rssi = signal.rssi,
         sinr = signal.rssnr
     )
 }
@@ -62,6 +67,7 @@ fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
         isServing = cell.isRegistered,
         pci = id.pci,
         nrarfcn = id.nrarfcn,
+        tac = id.tac,
         bands = id.bands.toList(),
         ssRsrp = signal.ssRsrp,
         ssRsrq = signal.ssRsrq,
