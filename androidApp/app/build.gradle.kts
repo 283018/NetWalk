@@ -8,6 +8,12 @@ android {
     namespace = "edu.pwr.zpi.netwalk"
     compileSdk = 36
 
+    sourceSets {
+        getByName("main") {
+            java.directories.add("src/main/kotlin")
+        }
+    }
+
     defaultConfig {
         applicationId = "edu.pwr.zpi.netwalk"
         minSdk = 30 // 29 API potrzebne dla requestCellInfoUpdate
