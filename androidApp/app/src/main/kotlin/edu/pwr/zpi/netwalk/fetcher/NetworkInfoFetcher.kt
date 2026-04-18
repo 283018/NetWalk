@@ -1,6 +1,7 @@
 package edu.pwr.zpi.netwalk.fetcher
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.telephony.CellIdentityNr
@@ -11,7 +12,9 @@ import android.telephony.CellSignalStrengthNr
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class LteNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
@@ -24,6 +27,7 @@ data class LteNetworkInfo(
     val sinr: Int,
 )
 
+@Serializable
 data class NrNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
@@ -35,6 +39,7 @@ data class NrNetworkInfo(
     val ssSinr: Int,
 )
 
+@Serializable
 data class NetworkInfoData(
     val networkType: String,
     val lteCells: List<LteNetworkInfo>,
@@ -88,8 +93,8 @@ object NetworkInfoFetcher {
 
     fun getRequiredPermissions(): Array<String> = REQUIRED_PERMISSIONS
 
-    @RequiresPermission(value = "android.permission.ACCESS_FINE_LOCATION")
-    fun fetchNetworkInfo(
+    @SuppressLint("MissingPermission")
+    fun fetchNetworkInfoUnsafe(
         tm: TelephonyManager,
         context: Context,
         onResult: (NetworkInfoData) -> Unit,
@@ -134,5 +139,14 @@ object NetworkInfoFetcher {
                 }
             },
         )
+    }
+
+    fun fetchNetworkInfoSafe(
+        tm: TelephonyManager,
+        context: Context,
+        onResult: (NetworkInfoData) -> Unit,
+    ) {
+        if (!hasRequiredPermissions(context)) return
+        fetchNetworkInfoUnsafe(tm, context, onResult)
     }
 }

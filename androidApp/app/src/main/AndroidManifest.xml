@@ -2,10 +2,13 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:label="@string/app_name"
-        android:theme="@style/Theme.NetWalk">
+        android:theme="@style/Theme.NetWalk"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffici tylko dla lokalnych testow, dozwala http zamiast https -->
 
         <activity
             android:name="edu.pwr.zpi.netwalk.MainActivity"
