@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
+import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -48,8 +49,10 @@ class NetworkViewModel : ViewModel() {
 
     private fun sendToServer(data: NetworkInfoData) {
         viewModelScope.launch {
+            val request = data.toMeasurementsRequest()
+
             client
-                .sendFullUpdate(data)
+                .sendFullUpdate(request)
                 .onSuccess {
                     lastStatus = "Last send: Success (${LocalTime.now()})"
                 }.onFailure {

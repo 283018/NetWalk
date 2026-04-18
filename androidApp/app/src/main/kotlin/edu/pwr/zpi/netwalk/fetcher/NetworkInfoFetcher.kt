@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.telephony.CellIdentityNr
 import android.telephony.CellInfo
 import android.telephony.CellInfoLte
@@ -13,6 +14,32 @@ import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import kotlinx.serialization.Serializable
+import java.time.Instant
+
+@Serializable
+data class MeasurementItem(
+    val session_id: String,
+    val imsi: String,
+    val imei: String? = null,
+    val measured_at: String, // using ISO 8901 as datetime
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val rsrp: Int? = null,
+    val sinr: Int? = null,
+    val network_type: String? = null,
+    val cell_id: String? = null,
+    val battery_level: Int? = null,
+    val processor_temp: Double? = null,
+    val os_version: String? = "Android ${Build.VERSION.RELEASE}",
+    val throughput_mbps: Double? = null,
+    val test_start_time: String? = null,
+    val test_end_time: String? = null,
+)
+
+@Serializable
+data class MeasurementRequest(
+    val measurements: List<MeasurementItem>,
+)
 
 @Serializable
 data class LteNetworkInfo(
@@ -45,6 +72,24 @@ data class NetworkInfoData(
     val lteCells: List<LteNetworkInfo>,
     val nrCells: List<NrNetworkInfo>,
 )
+
+// dodanie metody conversi "on runtime" bezpośredni do dataclass'u
+fun NetworkInfoData.toMeasurementsRequest(): MeasurementRequest {
+    val servingLte = lteCells.find { it.isServing }
+    val servingNr = nrCells.find { it.isServing }
+
+    val item = MeasurementItem(
+        session_id = "550e8400-e29b-41d4-a716-446655440000", // hardcoded for tests
+        imsi = "1234567890987654321",
+        measured_at = Instant.now().toString(),
+        network_type = this.networkType,
+        rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp,
+        sinr = servingNr?.ssSinr ?: servingLte?.sinr,
+        cell_id = servingLte?.pci?.toString() ?: servingNr?.pci?.toString(),
+    )
+
+    return MeasurementRequest(measurements = listOf(item))
+}
 
 fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
     val id = cell.cellIdentity

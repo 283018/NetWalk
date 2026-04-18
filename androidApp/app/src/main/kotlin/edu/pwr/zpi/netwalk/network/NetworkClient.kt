@@ -1,6 +1,7 @@
 package edu.pwr.zpi.netwalk.network
 
-import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
+// import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
+import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -12,12 +13,15 @@ import java.net.URL
 class NetworkClient(
     private val baseUrl: String,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+    }
 
-    suspend fun sendFullUpdate(data: NetworkInfoData): Result<Unit> =
+    suspend fun sendFullUpdate(data: MeasurementRequest): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                val url = URL("$baseUrl/send")
+                val url = URL("$baseUrl/measurements/batch")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.apply {
                     requestMethod = "POST"
