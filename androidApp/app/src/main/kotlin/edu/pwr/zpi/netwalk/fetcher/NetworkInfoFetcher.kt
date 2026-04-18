@@ -12,7 +12,6 @@ import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 
-
 data class LteNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
@@ -22,7 +21,7 @@ data class LteNetworkInfo(
     val rsrp: Int,
     val rsrq: Int,
     val rssi: Int,
-    val sinr: Int
+    val sinr: Int,
 )
 
 data class NrNetworkInfo(
@@ -33,13 +32,13 @@ data class NrNetworkInfo(
     val bands: List<Int>,
     val ssRsrp: Int,
     val ssRsrq: Int,
-    val ssSinr: Int
+    val ssSinr: Int,
 )
 
 data class NetworkInfoData(
     val networkType: String,
     val lteCells: List<LteNetworkInfo>,
-    val nrCells: List<NrNetworkInfo>
+    val nrCells: List<NrNetworkInfo>,
 )
 
 fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
@@ -55,7 +54,7 @@ fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
         rsrp = signal.rsrp,
         rsrq = signal.rsrq,
         rssi = signal.rssi,
-        sinr = signal.rssnr
+        sinr = signal.rssnr,
     )
 }
 
@@ -71,10 +70,9 @@ fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
         bands = id.bands.toList(),
         ssRsrp = signal.ssRsrp,
         ssRsrq = signal.ssRsrq,
-        ssSinr = signal.ssSinr
+        ssSinr = signal.ssSinr,
     )
 }
-
 
 object NetworkInfoFetcher {
     private val REQUIRED_PERMISSIONS =
@@ -91,41 +89,50 @@ object NetworkInfoFetcher {
     fun getRequiredPermissions(): Array<String> = REQUIRED_PERMISSIONS
 
     @RequiresPermission(value = "android.permission.ACCESS_FINE_LOCATION")
-    fun fetchNetworkInfo(tm: TelephonyManager, context: Context, onResult: (NetworkInfoData) -> Unit) {
+    fun fetchNetworkInfo(
+        tm: TelephonyManager,
+        context: Context,
+        onResult: (NetworkInfoData) -> Unit,
+    ) {
+        tm.requestCellInfoUpdate(
+            context.mainExecutor,
+            object : TelephonyManager.CellInfoCallback() {
+                @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+                override fun onCellInfo(activeCellInfo: MutableList<CellInfo>) {
+                    val lteCells = mutableListOf<LteNetworkInfo>()
+                    val nrCells = mutableListOf<NrNetworkInfo>()
 
-        tm.requestCellInfoUpdate(context.mainExecutor,
-            object: TelephonyManager.CellInfoCallback(){
-            @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
-            override fun onCellInfo(activeCellInfo: MutableList<CellInfo>){
-
-                val lteCells = mutableListOf<LteNetworkInfo>()
-                val nrCells = mutableListOf<NrNetworkInfo>()
-
-                for (cell in activeCellInfo) {
-                    when (cell) {
-                        is CellInfoLte -> lteCells.add(getLteInfo(cell))
-                        is CellInfoNr -> nrCells.add(getNrInfo(cell))
+                    for (cell in activeCellInfo) {
+                        when (cell) {
+                            is CellInfoLte -> lteCells.add(getLteInfo(cell))
+                            is CellInfoNr -> nrCells.add(getNrInfo(cell))
+                        }
                     }
+
+                    val networkType =
+                        when (tm.dataNetworkType) {
+                            TelephonyManager.NETWORK_TYPE_NR -> "5G"
+                            TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
+                            else -> "${tm.dataNetworkType}"
+                        }
+
+                    onResult(NetworkInfoData(networkType, lteCells, nrCells))
                 }
 
-                val networkType = when (tm.dataNetworkType) {
-                    TelephonyManager.NETWORK_TYPE_NR -> "5G"
-                    TelephonyManager.NETWORK_TYPE_LTE -> "LTE"
-                    else -> "${tm.dataNetworkType}"
+                override fun onError(
+                    errorCode: Int,
+                    detail: Throwable?,
+                ) {
+                    onResult(
+                        NetworkInfoData(
+                            "Cell info error $errorCode:" +
+                                " ${detail?.message}",
+                            lteCells = emptyList(),
+                            nrCells = emptyList(),
+                        ),
+                    )
                 }
-
-                onResult(NetworkInfoData(networkType, lteCells, nrCells))
-
-            }
-
-                override fun onError(errorCode: Int, detail: Throwable?) {
-                    onResult(NetworkInfoData("Cell info error ${errorCode}:" +
-                            " ${detail?.message}",
-                        lteCells = emptyList(),
-                        nrCells = emptyList()))
-                }
-
-        }
+            },
         )
     }
 }

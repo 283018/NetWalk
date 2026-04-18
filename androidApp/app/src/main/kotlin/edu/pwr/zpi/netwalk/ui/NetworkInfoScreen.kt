@@ -27,7 +27,7 @@ import kotlinx.coroutines.isActive
 @Composable
 fun NetworkInfoScreen(tm: TelephonyManager) {
     var data by remember { mutableStateOf<NetworkInfoData?>(null) }
-    var errorText by remember {mutableStateOf<String?>(null)}
+    var errorText by remember { mutableStateOf<String?>(null) }
     var hasPermission by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -37,9 +37,10 @@ fun NetworkInfoScreen(tm: TelephonyManager) {
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestMultiplePermissions(),
         ) { results ->
-            hasPermission = NetworkInfoFetcher
-                .getRequiredPermissions()
-                .all { results[it] == true }
+            hasPermission =
+                NetworkInfoFetcher
+                    .getRequiredPermissions()
+                    .all { results[it] == true }
 
             if (!hasPermission) {
                 errorText = "Permission denied"
@@ -54,7 +55,6 @@ fun NetworkInfoScreen(tm: TelephonyManager) {
         }
 
         while (isActive) {
-
             NetworkInfoFetcher.fetchNetworkInfo(tm, context) {
                 data = it
             }
@@ -63,16 +63,14 @@ fun NetworkInfoScreen(tm: TelephonyManager) {
         }
     }
 
-
     Column(modifier = Modifier.padding(16.dp)) {
-
         errorText?.let {
             Text(text = it, color = Color.Red)
         }
 
         Text(
             text = "Network: ${data?.networkType ?: "..."}",
-            color = Color.White
+            color = Color.White,
         )
 
         Text("  5G NR  ", color = Color.White)
@@ -82,48 +80,54 @@ fun NetworkInfoScreen(tm: TelephonyManager) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-
         Text(" LTE ", color = Color.White)
 
         data?.lteCells?.forEach {
             LteCellView(it)
             Spacer(modifier = Modifier.height(8.dp))
         }
-
     }
 }
 
 @Composable
-fun LteCellView(cell: LteNetworkInfo, color: Color = Color.White) {
+fun LteCellView(
+    cell: LteNetworkInfo,
+    color: Color = Color.White,
+) {
     Text(
-        text = buildString {
-            append(if (cell.isServing) "LTE (Serving)\n" else "LTE (Neighbor)\n")
-            append("PCI: ${cell.pci}\n")
-            append("EARFCN: ${cell.earfcn}\n")
-            append("TAC: ${cell.tac}\n")
-            append("Band number: ${cell.bands.joinToString()}\n")
-            append("RSRP: ${cell.rsrp} dBm\n")
-            append("RSRQ: ${cell.rsrq} dB\n")
-            append("RSSI: ${cell.rssi} dBm\n")
-            append("SINR: ${cell.sinr} dB\n")
-        },
-        color = color
+        text =
+            buildString {
+                append(if (cell.isServing) "LTE (Serving)\n" else "LTE (Neighbor)\n")
+                append("PCI: ${cell.pci}\n")
+                append("EARFCN: ${cell.earfcn}\n")
+                append("TAC: ${cell.tac}\n")
+                append("Band number: ${cell.bands.joinToString()}\n")
+                append("RSRP: ${cell.rsrp} dBm\n")
+                append("RSRQ: ${cell.rsrq} dB\n")
+                append("RSSI: ${cell.rssi} dBm\n")
+                append("SINR: ${cell.sinr} dB\n")
+            },
+        color = color,
     )
 }
 
 @Composable
-fun NrCellView(cell: NrNetworkInfo, color: Color = Color.White) {
+fun NrCellView(
+    cell: NrNetworkInfo,
+    color: Color = Color.White,
+) {
     Text(
-        text = buildString {
-            append(if (cell.isServing) "5G (Serving)\n" else "5G (Neighbor)\n")
-            append("PCI: ${cell.pci}\n")
-            append("NR-ARFCN: ${cell.nrarfcn}\n")
-            append("TAC: ${cell.tac}\n")
-            append("Band number: ${cell.bands.joinToString()}\n")
-            append("RSRP: ${cell.ssRsrp}\n")
-            append("RSRQ: ${cell.ssRsrq}\n")
-            append("SINR: ${cell.ssSinr}\n")
-        },
-        color = color
+        text =
+            buildString {
+                append(if (cell.isServing) "5G (Serving)\n" else "5G (Neighbor)\n")
+                append("PCI: ${cell.pci}\n")
+                append("NR-ARFCN: ${cell.nrarfcn}\n")
+                append("TAC: ${cell.tac}\n")
+                append("Band number: ${cell.bands.joinToString()}\n")
+                append("RSRP: ${cell.ssRsrp}\n")
+                append("RSRQ: ${cell.ssRsrq}\n")
+                append("SINR: ${cell.ssSinr}\n")
+            },
+        color = color,
     )
 }
