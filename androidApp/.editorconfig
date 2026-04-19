@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+[*.{kt,kts}]
+# używamy Jetpack Compose, więc funckcje oznaczone @Composable powinne zaczynać się z wielkiej litery
+ktlint_standard_function-naming = disabled
+ktlint_standard_filename = disabled
+
+# przecinek na końcu żeby zmniejszyć szum w diff'ach
+ij_kotlin_allow_trailing_comma = true
+ij_kotlin_allow_trailing_comma_on_call_site = true
+
+ij_kotlin_method_call_chain_wrap = normal
+ij_kotlin_wrap_elvis_expressions = 1
+
+# rozluźnienie wrapowania
+ktlint_standard_argument-list-wrapping = disabled
+ktlint_standard_parameter-list-wrapping = disabled
+ktlint_standard_multiline-expression-wrapping = disabled

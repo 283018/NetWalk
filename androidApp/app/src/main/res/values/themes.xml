@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<resources>
+  <style name="Theme.NetWalk" parent="@android:style/Theme.DeviceDefault"/>
+</resources>
