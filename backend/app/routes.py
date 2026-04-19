@@ -13,10 +13,19 @@ def health():
     return {"status": "ok"}
 
 
-# na razie używamy tego samego modelu, pożniej lepiej zmienić - chociażby żeby id pokazywał
-@router.get("/measurements", response_model=list[schemas.MeasurementCreate])
-def get_measurements(db: Session = Depends(get_db)):  # noqa: B008
-    return db.query(models.Measurement).limit(100).all()
+# Zmiana: używamy MeasurementResponse zamiast MeasurementCreate
+@router.get("/measurements", response_model=list[schemas.MeasurementResponse])
+def get_measurements(db: Session = Depends(get_db)):
+    measurements = db.query(models.Measurement).limit(100).all()
+    # Zmiana location na lat/lng dla response'u
+    result = []
+    for m in measurements:
+        resp = schemas.MeasurementResponse.model_validate(m)
+        if m.location:
+            resp.latitude = m.latitude
+            resp.longitude = m.longitude
+        result.append(resp)
+    return result
 
 
 @router.get("/analysis/average-signal")
@@ -24,7 +33,7 @@ def get_avg_signal(db: Session = Depends(get_db)):  # noqa: B008
     return average_signal(db)
 
 
-@router.post("/measurements/batch")
+@router.post("/measurements/batch", response_model=schemas.BatchResponse)
 def create_measurements_batch(
     batch: schemas.MeasurementBatch,
     db: Session = Depends(get_db),  # noqa: B008
