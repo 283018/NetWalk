@@ -1,0 +1,30 @@
+{
+  "measurements": [
+    {
+      "session_id": "550e8400-e29b-41d4-a716-446655440000",
+      "imsi": "260012345678901",
+      "imei": "864210051234567",
+      "measured_at": "2026-04-14T14:30:00Z",
+      "latitude": 52.2297,
+      "longitude": 21.0122,
+      "rsrp": -82,
+      "sinr": 18,
+      "network_type": "5G",
+      "cell_id": "12345-678",
+      "battery_level": 65,
+      "processor_temp": 38.2,
+      "os_version": "Android 14",
+      "throughput_mbps": 142.5,
+      "test_start_time": "2026-04-14T14:29:00Z",
+      "test_end_time": "2026-04-14T14:31:00Z"
+    },
+    {
+      "session_id": "660e8400-e29b-41d4-a716-446655440001",
+      "imsi": "260012345678902",
+      "measured_at": "2026-04-14T14:35:00Z",
+      "rsrp": -95,
+      "network_type": "4G",
+      "battery_level": 42
+    }
+  ]
+}
