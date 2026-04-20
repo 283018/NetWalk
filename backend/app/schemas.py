@@ -1,10 +1,33 @@
 from datetime import datetime
+from typing import Any, Self, cast
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from geoalchemy2.shape import to_shape
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from shapely.geometry import Point
 
 
-class MeasurementCreate(BaseModel):
+class MeasurementBase(BaseModel):
+    session_id: UUID
+    imsi: str
+    imei: str | None = None
+    measured_at: datetime
+    rsrp: int | None = None
+    rsrq: int | None = None
+    sinr: int | None = None
+    network_type: str | None = None
+    cell_id: str | None = None
+    tac: int | None = None
+    band: int | None = None
+    battery_level: int | None = None
+    processor_temp: float | None = None
+    os_version: str | None = None
+    throughput_mbps: float | None = None
+    test_start_time: datetime | None = None
+    test_end_time: datetime | None = None
+
+
+class MeasurementCreate(MeasurementBase):
     """
     JSON STRUCTURE FOR MOBILE APP REQUEST:
     {
@@ -29,40 +52,19 @@ class MeasurementCreate(BaseModel):
         "test_end_time": "2026-04-19T11:54:00Z"
     }
     """
-    session_id: UUID
-    imsi: str
-    imei: str | None = None
-    measured_at: datetime
-    latitude: float | None = None
-    longitude: float | None = None
-    rsrp: int | None = None
-    rsrq: int | None = None
-    sinr: int | None = None
-    network_type: str | None = None
-    cell_id: str | None = None
-    tac: int | None = None
-    band: int | None = None
-    battery_level: int | None = None
-    processor_temp: float | None = None
-    os_version: str | None = None
-    throughput_mbps: float | None = None
-    test_start_time: datetime | None = None
-    test_end_time: datetime | None = None
 
-    def to_db_dict(self) -> dict:
-        """
-        Converts API filds to SQLAlchemy model field.
-        """
-        data = self.model_dump(exclude={"latitude", "longitude"})
+    latitude: float | None = Field(default=None, exclude=True)
+    longitude: float | None = Field(default=None, exclude=True)
+    location: str | None = None
+
+    @model_validator(mode="after")
+    def create_wkt_location(self) -> Self:
         if self.latitude is not None and self.longitude is not None:
-            # PostGIS WKT format: "POINT(longitude latitude)"
-            data["location"] = f"POINT({self.longitude} {self.latitude})"
-        return data
-
-    model_config = {"from_attributes": True}
+            self.location = f"POINT({self.longitude} {self.latitude})"
+        return self
 
 
-class MeasurementResponse(BaseModel):
+class MeasurementResponse(MeasurementBase):
     """
     JSON STRUCTURE FOR FRONTEND RESPONSE:
     {
@@ -88,28 +90,27 @@ class MeasurementResponse(BaseModel):
         "test_end_time": "2026-04-19T11:54:00Z"
     }
     """
+
     id: int
-    session_id: UUID
-    imsi: str
-    imei: str | None = None
-    measured_at: datetime
-    latitude: float | None = None
-    longitude: float | None = None
-    rsrp: int | None = None
-    rsrq: int | None = None
-    sinr: int | None = None
-    network_type: str | None = None
-    cell_id: str | None = None
-    tac: int | None = None
-    band: int | None = None
-    battery_level: int | None = None
-    processor_temp: float | None = None
-    os_version: str | None = None
-    throughput_mbps: float | None = None
-    test_start_time: datetime | None = None
-    test_end_time: datetime | None = None
+    location: Any = Field(exclude=True)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def latitude(self) -> float | None:
+        if hasattr(self, "location") and self.location is not None:
+            point = cast(Point, to_shape(self.location))
+            return point.y
+        return None
+
+    @computed_field
+    @property
+    def longitude(self) -> float | None:
+        if hasattr(self, "location") and self.location is not None:
+            point = cast(Point, to_shape(self.location))
+            return point.x
+        return None
 
 
 class MeasurementBatch(BaseModel):
@@ -122,6 +123,7 @@ class MeasurementBatch(BaseModel):
         ]
     }
     """
+
     measurements: list[MeasurementCreate]
 
 
@@ -133,5 +135,6 @@ class BatchResponse(BaseModel):
         "batch_id": "550e8400-e29b-41d4-a716-446655440000"
     }
     """
+
     inserted: int
     batch_id: UUID | None = None

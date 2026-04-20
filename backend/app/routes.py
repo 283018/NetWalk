@@ -14,18 +14,12 @@ def health():
 
 
 # Zmiana: używamy MeasurementResponse zamiast MeasurementCreate
-@router.get("/measurements", response_model=list[schemas.MeasurementResponse])
-def get_measurements(db: Session = Depends(get_db)):
-    measurements = db.query(models.Measurement).limit(100).all()
-    # Zmiana location na lat/lng dla response'u
-    result = []
-    for m in measurements:
-        resp = schemas.MeasurementResponse.model_validate(m)
-        if m.location:
-            resp.latitude = m.latitude
-            resp.longitude = m.longitude
-        result.append(resp)
-    return result
+@router.get(
+    "/measurements",
+    response_model=list[schemas.MeasurementResponse],
+)
+def get_measurements(db: Session = Depends(get_db)):  # noqa: B008
+    return db.query(models.Measurement).limit(100).all()
 
 
 @router.get("/analysis/average-signal")
@@ -33,7 +27,10 @@ def get_avg_signal(db: Session = Depends(get_db)):  # noqa: B008
     return average_signal(db)
 
 
-@router.post("/measurements/batch", response_model=schemas.BatchResponse)
+@router.post(
+    "/measurements/batch",
+    response_model=schemas.BatchResponse,
+)
 def create_measurements_batch(
     batch: schemas.MeasurementBatch,
     db: Session = Depends(get_db),  # noqa: B008
@@ -41,8 +38,9 @@ def create_measurements_batch(
     if not batch.measurements:
         raise HTTPException(status_code=400, detail="Batch must contain at least one measurment.")
 
-    # konwersja latitude/longitude na PostGIS WKT format: "POINT(longitude latituse)"
-    rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
+    # konwersja latitude/longitude na PostGIS WKT format: "POINT(longitude latitude)"
+    # model_dump automatycznie exluduje lat/lng i includuje loc
+    rows = [models.Measurement(**item.model_dump()) for item in batch.measurements]
 
     try:
         db.add_all(rows)
