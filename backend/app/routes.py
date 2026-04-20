@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.analytics import average_signal
 from app.database import get_db
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.get("/health")  # to do sprawdzania czy odbiera
@@ -13,27 +16,34 @@ def health():
     return {"status": "ok"}
 
 
-# na razie używamy tego samego modelu, pożniej lepiej zmienić - chociażby żeby id pokazywał
-@router.get("/measurements", response_model=list[schemas.MeasurementCreate])
-def get_measurements(db: Session = Depends(get_db)):  # noqa: B008
+# Zmiana: używamy MeasurementResponse zamiast MeasurementCreate
+@router.get(
+    "/measurements",
+    response_model=list[schemas.MeasurementResponse],
+)
+def get_measurements(db: DbSession):
     return db.query(models.Measurement).limit(100).all()
 
 
 @router.get("/analysis/average-signal")
-def get_avg_signal(db: Session = Depends(get_db)):  # noqa: B008
+def get_avg_signal(db: DbSession):
     return average_signal(db)
 
 
-@router.post("/measurements/batch")
+@router.post(
+    "/measurements/batch",
+    response_model=schemas.BatchResponse,
+)
 def create_measurements_batch(
     batch: schemas.MeasurementBatch,
-    db: Session = Depends(get_db),  # noqa: B008
+    db: DbSession,
 ):
     if not batch.measurements:
         raise HTTPException(status_code=400, detail="Batch must contain at least one measurment.")
 
-    # konwersja latitude/longitude na PostGIS WKT format: "POINT(longitude latituse)"
-    rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
+    # konwersja latitude/longitude na PostGIS WKT format: "POINT(longitude latitude)"
+    # model_dump automatycznie exluduje lat/lng i includuje loc
+    rows = [models.Measurement(**item.model_dump()) for item in batch.measurements]
 
     try:
         db.add_all(rows)
