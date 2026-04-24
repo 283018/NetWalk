@@ -12,5 +12,12 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
 
+    #speedtest
+  openspeedtest:
+    image: openspeedtest/latest
+    container_name: openspeedtest
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
 volumes:
   db_data:
