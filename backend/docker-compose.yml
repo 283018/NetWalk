@@ -11,6 +11,12 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
+  iperf3:
+    image: networkstatic/iperf3
+    command: ["-s", "-B", "0.0.0.0"]
+    ports:
+      - "5201:5201"
+    restart: unless-stopped
 
 volumes:
   db_data:
