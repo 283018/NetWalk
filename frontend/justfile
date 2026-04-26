@@ -1,0 +1,15 @@
+default:
+    @echo "Frontend commands:"
+    @just --list
+
+# instaluje moduły
+install:
+    npm install
+
+# start developer serwer
+dev:
+    npm run dev
+
+# zbuduj serwer
+build:
+    npm run build

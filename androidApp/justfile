@@ -1,5 +1,5 @@
 default:
-    @echo "Commands:"
+    @echo "Android commands:"
     @just --list
 
 # regeneruje gradle wrapper
