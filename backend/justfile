@@ -1,33 +1,89 @@
 # odpalać za pomocą:
 # just <command>
 
-# łąduje dane z .env
+# ładuje dane z .env
 set dotenv-load := true
 
 default:
     @echo "Commands:"
+    @echo ""
     @just --list
 
-# postaw kontener postgres
-up:
-    docker compose up -d
 
-# zatrzymaj kontener
-down:
-    docker compose down
+# DEV
+# ===
 
-# zatrzymaj kontner i usuć dane
+# tworzy venv'a i instaluje wszystkie dev biblioteki
+install:
+    uv venv && uv sync --all-extras
+
+# tworzy env-file
+makeenv:
+    cp ./.env.example ./.env
+
+# odpal code check
+check:
+    uv run ruff check
+
+# formatuj
+lint:
+    uv run ruff format
+
+
+# DATABASE
+# ========
+
+# odpal kontener bazy danych
+db-up:
+    docker compose up -d timescaledb
+
+# zatrzymaj contener bazy
+db-down:
+    docker compose stop timescaledb
+
+# zatrzymaj kontener bazy i usuń dane
+db-reset:
+   docker compose down -v timescaledb
+
+# odpal postgres shell
+db-shell:
+    @docker compose exec timescaledb psql -U {{env_var("POSTGRES_USER")}} -d {{env_var("POSTGRES_DB")}}
+
+# SERVER
+# ======
+
+# odpala server bezpośrednio
+serve-host:
+    @echo "Starting server on host"
+    uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# odpala server w kontenerzr
+serve-docker:
+    @echo "Starting server in contener."
+    docker compose up --build --no-deps api
+
+# odpal shell w kontenerze api
+api-shell:
+    docker compose exec api /bin/bash
+
+
+# FULL STACK
+# ==========
+
+# odpala db + server
+up-full:
+    @echo "Starting full stack in docker"
+    docker compose up --build
+
+# zatrzymaj cały serwis i usuń dane
 down-remove:
     docker compose down -v
 
-# zrestartuj kontener (usuwa dane)
-reset: down-remove up
 
-# odpal serwer
-serve:
-    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# TESTS
+# =====
 
-# healthcheck
+# odpal serwer healthcheck
 test-health:
     curl -s http://localhost:8000/health | jq .
 
@@ -46,6 +102,23 @@ test-get:
 test-all: test-health test-batch test-get
     @echo "Tests passed"
 
-# odpal postgres shell
-db-shell:
-  @docker exec -it ZPI2026 psql -U $POSTGRES_USER -d $POSTGRES_DB
+
+# UTILITIES
+# =========
+
+# pokaż status serwisóœ
+status:
+    docker compose ps
+
+# pokaż logi API
+logs-api:
+    docker compose logs -f api
+
+# pokaż logi bazu
+logs-db:
+    docker compose logs -f timescaledb
+
+# wyczyść cahce buildu dockera
+docker-clean:
+    docker builder prune -f
+
