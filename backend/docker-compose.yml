@@ -24,7 +24,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://netwalk:password@timescaledb:5432/netwalk_db
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       timescaledb:
         condition: service_healthy
