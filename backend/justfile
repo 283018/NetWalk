@@ -48,4 +48,4 @@ test-all: test-health test-batch test-get
 
 # odpal postgres shell
 db-shell:
-  @docker exec -it ZPI2026 psql -U $POSTGRES_USER -d $POSTGRES_DB
+  @docker exec -it netwalk-db psql -U $POSTGRES_USER -d $POSTGRES_DB
