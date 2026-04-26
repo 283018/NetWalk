@@ -1,0 +1,23 @@
+default:
+    @echo "Commands:"
+    @just --list
+
+# regeneruje gradle wrapper
+wrapper:
+    gradle wrapper --gradle-version 9.4.1
+
+# checker
+lint:
+    ./gradlew ktlintCheck
+
+# formatuj
+format:
+    ./gradlew ktlintFormat
+
+# pełny build
+build:
+    ./gradlew clean build
+
+# debug build
+assemble:
+    ./gradlew assembleDebug
