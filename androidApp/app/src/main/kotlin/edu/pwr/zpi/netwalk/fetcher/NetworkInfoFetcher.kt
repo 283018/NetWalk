@@ -1,7 +1,6 @@
 package edu.pwr.zpi.netwalk.fetcher
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -13,8 +12,10 @@ import android.telephony.CellSignalStrengthNr
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import java.time.Instant
+import kotlin.coroutines.resume
 
 @Serializable
 data class MeasurementItem(
@@ -74,7 +75,10 @@ data class NetworkInfoData(
 )
 
 // dodanie metody conversi "on runtime" bezpośredni do dataclass'u
-fun NetworkInfoData.toMeasurementsRequest(): MeasurementRequest {
+fun NetworkInfoData.toMeasurementsRequest(
+    latitude: Double?,
+    longitude: Double?,
+): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
 
@@ -82,6 +86,8 @@ fun NetworkInfoData.toMeasurementsRequest(): MeasurementRequest {
         session_id = "550e8400-e29b-41d4-a716-446655440000", // hardcoded for tests
         imsi = "1234567890987654321",
         measured_at = Instant.now().toString(),
+        latitude = latitude,
+        longitude = longitude,
         network_type = this.networkType,
         rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp,
         sinr = servingNr?.ssSinr ?: servingLte?.sinr,
@@ -138,8 +144,24 @@ object NetworkInfoFetcher {
 
     fun getRequiredPermissions(): Array<String> = REQUIRED_PERMISSIONS
 
-    @SuppressLint("MissingPermission")
-    fun fetchNetworkInfoUnsafe(
+    @RequiresPermission(allOf = [Manifest.permission.READ_PHONE_STATE, Manifest.permission.ACCESS_FINE_LOCATION])
+    suspend fun fetchNetworkInfo(
+        tm: TelephonyManager,
+        context: Context,
+    ): NetworkInfoData =
+        suspendCancellableCoroutine { continuation ->
+
+            fetchNetworkInfoSafe(tm, context) { data ->
+                if (continuation.isActive) {
+                    continuation.resume(data)
+                }
+            }
+        }
+
+    @RequiresPermission(
+        anyOf = [Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION],
+    )
+    fun fetchNetworkInfoSafe(
         tm: TelephonyManager,
         context: Context,
         onResult: (NetworkInfoData) -> Unit,
@@ -184,14 +206,5 @@ object NetworkInfoFetcher {
                 }
             },
         )
-    }
-
-    fun fetchNetworkInfoSafe(
-        tm: TelephonyManager,
-        context: Context,
-        onResult: (NetworkInfoData) -> Unit,
-    ) {
-        if (!hasRequiredPermissions(context)) return
-        fetchNetworkInfoUnsafe(tm, context, onResult)
     }
 }

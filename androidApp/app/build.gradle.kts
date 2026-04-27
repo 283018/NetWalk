@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.play.services.location)
     debugImplementation(libs.androidx.ui.tooling)
 }
 

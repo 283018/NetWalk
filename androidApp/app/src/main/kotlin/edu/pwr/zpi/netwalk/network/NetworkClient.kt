@@ -4,7 +4,6 @@ package edu.pwr.zpi.netwalk.network
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
