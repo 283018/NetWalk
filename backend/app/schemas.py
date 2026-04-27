@@ -3,7 +3,7 @@ from typing import Any, Self, cast
 from uuid import UUID
 
 from geoalchemy2.shape import to_shape
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator, field_validator
 from shapely.geometry import Point
 
 
@@ -56,6 +56,18 @@ class MeasurementCreate(MeasurementBase):
     latitude: float | None = Field(default=None, exclude=True)
     longitude: float | None = Field(default=None, exclude=True)
     location: str | None = None
+
+    @field_validator('latitude')
+    def validate_latitude(cls, v):
+        if v is not None and (v < -90 or v > 90):
+            raise ValueError('latitude must be between -90 and 90')
+        return v
+
+    @field_validator('longitude')
+    def validate_longitude(cls, v):
+        if v is not None and (v < -180 or v > 180):
+            raise ValueError('longitude must be between -180 and 180')
+        return v
 
     @model_validator(mode="after")
     def create_wkt_location(self) -> Self:
