@@ -14,6 +14,7 @@ import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.location.getCurrentLocation
 import edu.pwr.zpi.netwalk.network.NetworkClient
+import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -23,7 +24,9 @@ import java.time.LocalTime
 import kotlin.Double
 import kotlin.Pair
 
-class NetworkViewModel : ViewModel() {
+class NetworkViewModel(
+    private val settingsRepository: SettingsRepository,
+) : ViewModel() {
     var uiStateNetwork by mutableStateOf<NetworkInfoData?>(null)
         private set
     var uiStateLocation by mutableStateOf<Pair<Double?, Double?>>(null to null)
@@ -32,8 +35,22 @@ class NetworkViewModel : ViewModel() {
         private set
 
     // na razie jest host dostosowany do android emulator któty jest dostępny razem z android sdk
-    private val client = NetworkClient("http://10.0.2.2:8000")
+    private var client: NetworkClient? = null
     private var collectionJob: Job? = null
+    private var currentServerUrl: String? = null
+
+    init {
+        // obserwujemy zmiane url
+        viewModelScope.launch {
+            settingsRepository.serverUrl.collect { url ->
+                if (url != currentServerUrl) {
+                    client = NetworkClient(url)
+                    currentServerUrl = url
+                    lastStatus = "Server URL updated: $url"
+                }
+            }
+        }
+    }
 
     @SuppressLint("MissingPermission")
     fun startCollection(
@@ -70,13 +87,24 @@ class NetworkViewModel : ViewModel() {
     private fun sendToServer(request: MeasurementRequest) {
         viewModelScope.launch {
             client
-                .sendFullUpdate(request)
-                .onSuccess {
+                ?.sendFullUpdate(request)
+                ?.onSuccess {
                     lastStatus = "Last send: Success (${LocalTime.now()})"
-                }.onFailure {
+                }?.onFailure {
                     lastStatus = "Error: ${it.localizedMessage}"
                     println("Network Error: ${it.message}")
                 }
+                ?: run {
+                    lastStatus = "Error: NetworkClient not initialized"
+                    println("Network Error: client is null")
+                }
         }
     }
+
+    // helper zeby aktualizować url z ui'u
+    suspend fun updateServerUrl(url: String) {
+        settingsRepository.updateServerUrl(url)
+    }
+
+    fun getCurrentServerUrl(): String = currentServerUrl ?: SettingsRepository.DEFAULT_URL
 }

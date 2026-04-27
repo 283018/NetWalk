@@ -3,12 +3,16 @@ package edu.pwr.zpi.netwalk.ui
 import android.telephony.TelephonyManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,12 +26,13 @@ import androidx.compose.ui.unit.dp
 import edu.pwr.zpi.netwalk.fetcher.LteNetworkInfo
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.NrNetworkInfo
+import androidx.lifecycle.viewmodel.compose.viewModel as _viewModel
 
 @Composable
 fun NetworkInfoScreen(
     tm: TelephonyManager,
-    viewModel: NetworkViewModel = androidx.lifecycle.viewmodel.compose
-        .viewModel(),
+    viewModel: NetworkViewModel = _viewModel(),
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val networkData = viewModel.uiStateNetwork
     val (latitude, longitude) = viewModel.uiStateLocation
@@ -62,6 +67,15 @@ fun NetworkInfoScreen(
     }
 
     Column(modifier = Modifier.padding(16.dp).verticalScroll(scrollState)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            OutlinedButton(onClick = onNavigateToSettings) {
+                Text("Settings")
+            }
+        }
+
         // tworzymy text jeżeli występuje błąd w ui
         if (!hasPermission) {
             Text(text = "Permission denied", color = Color.Red)
