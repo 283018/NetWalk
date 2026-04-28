@@ -6,6 +6,10 @@ from geoalchemy2.shape import to_shape
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator, field_validator
 from shapely.geometry import Point
 
+LAT_MIN = -90
+LAT_MAX = 90
+LON_MIN = -180
+LON_MAX = 180
 
 class MeasurementBase(BaseModel):
     session_id: UUID
@@ -58,15 +62,19 @@ class MeasurementCreate(MeasurementBase):
     location: str | None = None
 
     @field_validator('latitude')
-    def validate_latitude(cls, v):
-        if v is not None and (v < -90 or v > 90):
-            raise ValueError('latitude must be between -90 and 90')
+    @classmethod
+    def validate_latitude(cls, v: float | None) -> float | None:
+        if v is not None and (v < LAT_MIN or v > LAT_MAX):
+            msg = f"latitude must be between {LAT_MIN} and {LAT_MAX}"
+            raise ValueError(msg)
         return v
 
     @field_validator('longitude')
-    def validate_longitude(cls, v):
-        if v is not None and (v < -180 or v > 180):
-            raise ValueError('longitude must be between -180 and 180')
+    @classmethod
+    def validate_longitude(cls, v: float | None) -> float | None:
+        if v is not None and (v < LON_MIN or v > LON_MAX):
+            msg = f"longitude must be between {LON_MIN} and {LON_MAX}"
+            raise ValueError(msg)
         return v
 
     @model_validator(mode="after")

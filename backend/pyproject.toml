@@ -15,7 +15,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ruff>=0.15.10"]
+dev = ["ruff>=0.15.10", "pytest>=9.0.0"]
+
 
 [tool.ruff]
 exclude = [
