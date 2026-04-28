@@ -43,7 +43,7 @@ def create_measurements_batch(
 
     # konwersja latitude/longitude na PostGIS WKT format: "POINT(longitude latitude)"
     # model_dump automatycznie exluduje lat/lng i includuje loc
-    rows = [models.Measurement(**item.model_dump()) for item in batch.measurements]
+    rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
 
     try:
         db.add_all(rows)
