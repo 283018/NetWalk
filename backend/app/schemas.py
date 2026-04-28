@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Any, Self, cast
+from functools import cached_property
+from typing import cast
 from uuid import UUID
 
 from geoalchemy2.shape import to_shape
@@ -118,18 +119,20 @@ class MeasurementResponse(MeasurementBase):
     @computed_field
     @property
     def latitude(self) -> float | None:
-        if hasattr(self, "location") and self.location is not None:
-            point = cast(Point, to_shape(self.location))
-            return point.y
-        return None
+        p = self._point
+        return p.y if p else None
 
     @computed_field
     @property
     def longitude(self) -> float | None:
-        if hasattr(self, "location") and self.location is not None:
-            point = cast(Point, to_shape(self.location))
-            return point.x
-        return None
+        p = self._point
+        return p.x if p else None
+
+    @cached_property
+    def _point(self) -> Point | None:
+        if self.location is None:
+            return None
+        return cast(Point, to_shape(self.location))
 
 
 class MeasurementBatch(BaseModel):
