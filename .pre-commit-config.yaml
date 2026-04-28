@@ -12,14 +12,10 @@ repos:
     hooks:
       - id: ruff-format
         name: "ruff format (backend)"
-        files: ^backend/.*\.py$
-        exclude: ^backend/\.venv/
         args: [--config, backend/pyproject.toml]
 
       - id: ruff
         name: "ruff check (backend)"
-        files: ^backend/.*\.py$
-        exclude: ^backend/\.venv/
         args: [--config, backend/pyproject.toml, --fix]
 
   # ANDROID

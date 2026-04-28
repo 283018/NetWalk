@@ -12,6 +12,13 @@ dependencies = [
   "pydantic-settings>=2.13.1",
   "sqlalchemy>=2.0.49",
   "uvicorn>=0.44.0",
+  "backend/.venv",
+  "backend/.ruff_cache",
+  "backend/__pycache__",
+  "backend/build",
+  "backend/dist",
+  "backend/.pytest_cache",
+  "backend/tests",
 ]
 
 [project.optional-dependencies]
@@ -91,7 +98,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = [
+"backend/tests/**/*.py" = [
     "S101",
     "PLR2004",
     "S101",
