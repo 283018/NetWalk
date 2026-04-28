@@ -29,6 +29,7 @@ exclude = [
   ".pytest_cache",
   ".vscode",
   ".idea",
+  "backend/.venv",
 ]
 line-length = 100
 indent-width = 4
@@ -83,4 +84,32 @@ ignore = [
   "PGH004",
   "RUF100",
   "COM812",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "PLR2004",
+    "S101",
+    "PLR2004",
+    "ARG",
+    "S105",
+    "S106",
+    "S107",
+    "PLR0913",
+    "PLR0915",
+    "T201",
+]
+"tests/**/*.py" = [
+    "S101",
+    "PLR2004",
+    "S101",
+    "PLR2004",
+    "ARG",
+    "S105",
+    "S106",
+    "S107",
+    "PLR0913",
+    "PLR0915",
+    "T201",
 ]
