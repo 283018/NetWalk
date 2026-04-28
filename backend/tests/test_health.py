@@ -1,4 +1,3 @@
-import pytest
 from sqlalchemy import text
 
 
@@ -14,19 +13,23 @@ def test_database_connection(test_db):
 
 
 def test_measurements_table_exists(test_db):
-    result = test_db.execute(text("""
+    result = test_db.execute(
+        text("""
         SELECT EXISTS (
-            SELECT FROM information_schema.tables 
+            SELECT FROM information_schema.tables
             WHERE table_name = 'measurements'
         )
-    """))
+    """)
+    )
     assert result.scalar() is True
 
 
 def test_postgis_extension(test_db):
-    result = test_db.execute(text("""
+    result = test_db.execute(
+        text("""
         SELECT EXISTS (
             SELECT FROM pg_extension WHERE extname = 'postgis'
         )
-    """))
+    """)
+    )
     assert result.scalar() is True
