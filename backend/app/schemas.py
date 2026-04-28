@@ -3,8 +3,9 @@ from functools import cached_property
 from typing import cast
 from uuid import UUID
 
-from geoalchemy2.shape import to_shape
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator, field_validator
+from geoalchemy2.elements import WKBElement
+from geoalchemy2.shape import from_shape, to_shape
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 from shapely.geometry import Point
 
 LAT_RANGE = 90
@@ -59,7 +60,6 @@ class MeasurementCreate(MeasurementBase):
 
     latitude: float | None = Field(default=None, exclude=True)
     longitude: float | None = Field(default=None, exclude=True)
-    location: str | None = None
 
     @field_validator("latitude")
     @classmethod
@@ -77,11 +77,14 @@ class MeasurementCreate(MeasurementBase):
             raise ValueError(msg)
         return v
 
-    @model_validator(mode="after")
-    def create_wkt_location(self) -> Self:
+    def to_db_dict(self) -> dict:
+        data = self.model_dump(exclude={"latitude", "longitude"})
         if self.latitude is not None and self.longitude is not None:
-            self.location = f"POINT({self.longitude} {self.latitude})"
-        return self
+            data["location"] = from_shape(
+                Point(self.longitude, self.latitude),
+                srid=4326,
+            )
+        return data
 
 
 class MeasurementResponse(MeasurementBase):
@@ -112,9 +115,12 @@ class MeasurementResponse(MeasurementBase):
     """
 
     id: int
-    location: Any = Field(exclude=True)
+    location: WKBElement | None = Field(default=None, exclude=True)
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True,
+    )
 
     @computed_field
     @property
