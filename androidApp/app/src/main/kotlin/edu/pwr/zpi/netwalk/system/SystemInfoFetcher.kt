@@ -3,11 +3,10 @@ package edu.pwr.zpi.netwalk.system
 import android.content.Context
 import android.os.BatteryManager
 import android.os.Build
-import android.os.HardwarePropertiesManager
 
 data class SystemData(
     val battery_level: Int,
-    val processor_temp: Double?,
+    val battery_temp: Double?,
     val os_version: String = "Android ${Build.VERSION.RELEASE}",
 )
 
@@ -15,7 +14,7 @@ object SystemInfoFetcher {
     fun fetchFullSystemInfo(context: Context): SystemData =
         SystemData(
             battery_level = getBatteryLevel(context),
-            processor_temp = getProcessorTemp(context),
+            battery_temp = getBatteryTemp(context),
         )
 
     /* Identifiers in sdk >29 are not easily acquireable
@@ -33,16 +32,16 @@ object SystemInfoFetcher {
         return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
     }
 
-    fun getProcessorTemp(context: Context): Double? {
-        val hpm = context.getSystemService(Context.HARDWARE_PROPERTIES_SERVICE) as HardwarePropertiesManager
-        val temps = hpm.getDeviceTemperatures(
-            HardwarePropertiesManager.DEVICE_TEMPERATURE_CPU,
-            HardwarePropertiesManager.TEMPERATURE_CURRENT,
+    fun getBatteryTemp(context: Context): Double? {
+        val intent = context.registerReceiver(
+            null,
+            android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED),
         )
-        return if (temps.isNotEmpty()) {
-            temps[0].toDouble()
-        } else {
-            null
-        }
+
+        val temp = intent?.getIntExtra(
+            BatteryManager.EXTRA_TEMPERATURE,
+            0,
+        ) ?: 0
+        return if (temp > 0) temp.toDouble() / 10 else null // Returns battery temperature in Celsius
     }
 }
