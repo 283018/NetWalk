@@ -37,7 +37,7 @@ fun NetworkInfoScreen(
     val networkData = viewModel.uiStateNetwork
     val (latitude, longitude) = viewModel.uiStateLocation
     val batteryLevel = viewModel.uiStateSystem?.battery_level
-    val processorTemp = viewModel.uiStateSystem?.processor_temp
+    val batteryTemp = viewModel.uiStateSystem?.battery_temp
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -89,14 +89,10 @@ fun NetworkInfoScreen(
             color = Color.White,
         )
 
-        Text("  5G NR  ", color = Color.White)
-
         networkData?.nrCells?.forEach {
             NrCellView(it)
             Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Text(" LTE ", color = Color.White)
 
         networkData?.lteCells?.forEach {
             LteCellView(it)
@@ -106,13 +102,13 @@ fun NetworkInfoScreen(
         Text(" Lokalizacja ", color = Color.White)
 
         Text(
-            text = " Longitude: $longitude \n Latitude: $latitude",
+            text = " Longitude: $longitude \n Latitude: $latitude \n",
             color = Color.White,
         )
 
         Text(" System Info ", color = Color.White)
         Text(
-            text = " Battery level: $batteryLevel \n Processor temperature: $processorTemp",
+            text = " Battery level: $batteryLevel % \n Battery temperature: $batteryTemp °C",
             color = Color.White,
         )
 
