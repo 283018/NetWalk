@@ -36,6 +36,9 @@ fun NetworkInfoScreen(
 ) {
     val networkData = viewModel.uiStateNetwork
     val (latitude, longitude) = viewModel.uiStateLocation
+    val batteryLevel = viewModel.uiStateSystem?.battery_level
+    val processorTemp = viewModel.uiStateSystem?.processor_temp
+
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val scrollState = rememberScrollState()
@@ -66,7 +69,7 @@ fun NetworkInfoScreen(
         }
     }
 
-    Column(modifier = Modifier.padding(16.dp).verticalScroll(scrollState)) {
+    Column(modifier = Modifier.padding(top = 16.dp).padding(16.dp).verticalScroll(scrollState)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.End,
@@ -104,6 +107,12 @@ fun NetworkInfoScreen(
 
         Text(
             text = " Longitude: $longitude \n Latitude: $latitude",
+            color = Color.White,
+        )
+
+        Text(" System Info ", color = Color.White)
+        Text(
+            text = " Battery level: $batteryLevel \n Processor temperature: $processorTemp",
             color = Color.White,
         )
 
