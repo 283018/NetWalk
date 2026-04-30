@@ -40,7 +40,7 @@ jobs:
 
       - name: Find APK
         id: apk
-        run: echo "path=app/build/outputs/apk/debug/app-debug.apk" >> $GITHUB_OUTPUT
+        run: echo "path=artifacts/NetWalk-debug.apk" >> $GITHUB_OUTPUT
 
       - name: Create release
         uses: softprops/action-gh-release@v2
