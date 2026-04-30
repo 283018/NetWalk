@@ -12,6 +12,7 @@ import android.telephony.CellSignalStrengthNr
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -26,11 +27,15 @@ data class MeasurementItem(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val rsrp: Int? = null,
+    val rsrq: Int? = null,
     val sinr: Int? = null,
     val network_type: String? = null,
+    val tac: Int? = null,
     val cell_id: String? = null,
+    val radio_frequency: Int? = null, // EARFCN for LTE, NR-ARFCN for 5G
+    val band: Int? = null,
     val battery_level: Int? = null,
-    val processor_temp: Double? = null,
+    val battery_temp: Double? = null,
     val os_version: String? = "Android ${Build.VERSION.RELEASE}",
     val throughput_mbps: Double? = null,
     val test_start_time: String? = null,
@@ -78,6 +83,7 @@ data class NetworkInfoData(
 fun NetworkInfoData.toMeasurementsRequest(
     latitude: Double?,
     longitude: Double?,
+    systemData: SystemData,
 ): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
@@ -89,9 +95,15 @@ fun NetworkInfoData.toMeasurementsRequest(
         latitude = latitude,
         longitude = longitude,
         network_type = this.networkType,
-        rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp,
-        sinr = servingNr?.ssSinr ?: servingLte?.sinr,
+        rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp, // measured in dBm
+        rsrq = servingNr?.ssRsrq ?: servingLte?.rsrq, // measured in dB
+        sinr = servingNr?.ssSinr ?: servingLte?.sinr, // measured in dB
         cell_id = servingLte?.pci?.toString() ?: servingNr?.pci?.toString(),
+        tac = servingNr?.tac ?: servingLte?.tac,
+        radio_frequency = servingNr?.nrarfcn ?: servingLte?.earfcn,
+        band = servingNr?.bands?.firstOrNull() ?: servingLte?.bands?.firstOrNull(),
+        battery_level = systemData.battery_level,
+        battery_temp = systemData.battery_temp,
     )
 
     return MeasurementRequest(measurements = listOf(item))
