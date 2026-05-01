@@ -58,6 +58,7 @@ data class LteNetworkInfo(
     val rsrq: Int,
     val rssi: Int,
     val sinr: Int,
+    val frequencies: Pair<Double, Double>?,
 )
 
 @Serializable
@@ -70,6 +71,7 @@ data class NrNetworkInfo(
     val ssRsrp: Int,
     val ssRsrq: Int,
     val ssSinr: Int,
+    val frequencies: Pair<Double, Double>?,
 )
 
 @Serializable
@@ -123,6 +125,7 @@ fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
         rsrq = signal.rsrq,
         rssi = signal.rssi,
         sinr = signal.rssnr,
+        frequencies = FrequencyCalculator.calculateLteMhz(id.earfcn, id.bands.joinToString()),
     )
 }
 
@@ -139,6 +142,7 @@ fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
         ssRsrp = signal.ssRsrp,
         ssRsrq = signal.ssRsrq,
         ssSinr = signal.ssSinr,
+        frequencies = FrequencyCalculator.calculateNrMhz(id.nrarfcn),
     )
 }
 
