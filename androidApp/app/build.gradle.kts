@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "edu.pwr.zpi.netwalk"
     compileSdk = 36
+    ndkVersion = libs.versions.ndk.get()
 
     sourceSets {
         getByName("main") {
@@ -21,6 +22,23 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1"
+
+        externalNativeBuild {
+            cmake {
+                cFlags += listOf("-std=c11", "-D__STDC_NO_ATOMICS__=0")
+            }
+        }
+
+        // tu trzeba wksazać architekture procesora
+        // arm64 i armeabi powinno wystarczyć dla wszystkiego z androidem 12+
+        // ale w przypadku emulatora trzeba kopilować dla architektury hosta
+        ndk {
+            abiFilters += listOf(
+                "arm64-v8a", // modern phones
+                // "armeabi-v7a", // legacy x32 architecture (may require disabling atomics in iperf_config_android.h )
+                "x86_64", // x64 emulator
+            )
+        }
     }
 
     buildFeatures {
@@ -30,6 +48,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = libs.versions.cmake.get()
+        }
     }
 
     // TODO: change name of produced apk
