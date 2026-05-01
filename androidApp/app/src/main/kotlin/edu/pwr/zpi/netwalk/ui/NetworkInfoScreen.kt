@@ -154,6 +154,11 @@ fun NetworkInfoScreen(
 
 @Composable
 fun NrCellCard(cell: NrNetworkInfo) {
+    val freqs = cell.frequencies
+
+    val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
+    val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -183,6 +188,8 @@ fun NrCellCard(cell: NrNetworkInfo) {
                     "SS-RSRP" to "${cell.ssRsrp} dBm",
                     "SS-RSRQ" to "${cell.ssRsrq} dB",
                     "SS-SINR" to "${cell.ssSinr} dB",
+                    "Freq DL" to dlDisplay,
+                    "Freq UL" to ulDisplay,
                 ),
             )
         }
@@ -191,6 +198,10 @@ fun NrCellCard(cell: NrNetworkInfo) {
 
 @Composable
 fun LteCellCard(cell: LteNetworkInfo) {
+    val freqs = cell.frequencies
+
+    val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
+    val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -219,7 +230,10 @@ fun LteCellCard(cell: LteNetworkInfo) {
                     "Band" to cell.bands.joinToString(),
                     "RSRP" to "${cell.rsrp} dBm",
                     "RSSI" to "${cell.rssi} dBm",
+                    "RSRQ" to "${cell.rsrq} dB",
                     "SINR" to "${cell.sinr} dB",
+                    "Freq DL" to dlDisplay,
+                    "Freq UL" to ulDisplay,
                 ),
             )
         }
