@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
+import edu.pwr.zpi.netwalk.ui.IperfLogScreen
 import edu.pwr.zpi.netwalk.ui.NetworkInfoScreen
 import edu.pwr.zpi.netwalk.ui.NetworkViewModel
 import edu.pwr.zpi.netwalk.ui.SettingsScreen
@@ -41,6 +42,7 @@ class MainActivity : ComponentActivity() {
                             tm = tm,
                             viewModel = viewModel,
                             onNavigateToSettings = { navController.navigate("settings") },
+                            onNavigateToIperf = { navController.navigate("iperf") },
                         )
                     }
                     composable("settings") {
@@ -48,6 +50,15 @@ class MainActivity : ComponentActivity() {
                             NetworkViewModel(settingsRepository)
                         }
                         SettingsScreen(
+                            viewModel = viewModel,
+                            onNavigateBack = { navController.popBackStack() },
+                        )
+                    }
+                    composable("iperf") {
+                        val viewModel: NetworkViewModel = _viewModel {
+                            NetworkViewModel(settingsRepository)
+                        }
+                        IperfLogScreen(
                             viewModel = viewModel,
                             onNavigateBack = { navController.popBackStack() },
                         )

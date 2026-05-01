@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -12,11 +13,14 @@ import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
+import edu.pwr.zpi.netwalk.iperf.IperfCallback
+import edu.pwr.zpi.netwalk.iperf.IperfRunner
 import edu.pwr.zpi.netwalk.location.getCurrentLocation
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -45,6 +49,9 @@ class NetworkViewModel(
     private var collectionJob: Job? = null
     private var currentServerUrl: String? = null
 
+    val iperfLogs = mutableStateListOf<String>()
+    private var iperfJob: Job? = null
+
     init {
         // obserwujemy zmiane url
         viewModelScope.launch {
@@ -53,6 +60,44 @@ class NetworkViewModel(
                     client = NetworkClient(url)
                     currentServerUrl = url
                     lastStatus = "Server URL updated: $url"
+                }
+            }
+        }
+    }
+
+    fun runIperfTest() {
+        if (iperfJob?.isActive == true) return
+        iperfLogs.clear()
+
+        iperfJob = viewModelScope.launch(Dispatchers.IO) {
+            val args = arrayOf("iperf3", "-c", "10.0.2.2", "-p", "5201", "-t", "5")
+
+            try {
+                IperfRunner.runIperfLive(
+                    args,
+                    object : IperfCallback {
+                        override fun onOutput(message: String) {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                iperfLogs.add(message.trim())
+                            }
+                        }
+
+                        override fun onError(error: String) {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                iperfLogs.add("Error: $error")
+                            }
+                        }
+
+                        override fun onComplete() {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                iperfLogs.add("--- Test Complete ---")
+                            }
+                        }
+                    },
+                )
+            } catch (e: Exception) {
+                viewModelScope.launch(Dispatchers.Main) {
+                    iperfLogs.add("Native implementation failed: ${e.message}")
                 }
             }
         }
