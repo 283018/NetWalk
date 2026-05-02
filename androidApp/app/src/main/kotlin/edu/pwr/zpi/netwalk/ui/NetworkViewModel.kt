@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -31,7 +32,7 @@ import kotlin.Double
 import kotlin.Pair
 
 class NetworkViewModel(
-    private val settingsRepository: SettingsRepository,
+    val settings: SettingsRepository,
 ) : ViewModel() {
     var uiStateNetwork by mutableStateOf<NetworkInfoData?>(null)
         private set
@@ -55,7 +56,7 @@ class NetworkViewModel(
     init {
         // obserwujemy zmiane url
         viewModelScope.launch {
-            settingsRepository.serverUrl.collect { url ->
+            settings.serverUrl.flow.collect { url ->
                 if (url != currentServerUrl) {
                     client = NetworkClient(url)
                     currentServerUrl = url
@@ -154,10 +155,5 @@ class NetworkViewModel(
         }
     }
 
-    // helper zeby aktualizować url z ui'u
-    suspend fun updateServerUrl(url: String) {
-        settingsRepository.updateServerUrl(url)
-    }
 
-    fun getCurrentServerUrl(): String = currentServerUrl ?: SettingsRepository.DEFAULT_URL
 }

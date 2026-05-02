@@ -37,9 +37,7 @@ fun SettingsScreen(
     viewModel: NetworkViewModel,
     onNavigateBack: () -> Unit,
 ) {
-    var urlInput by remember {
-        mutableStateOf(TextFieldValue(viewModel.getCurrentServerUrl()))
-    }
+    var url by remember { mutableStateOf(viewModel.settings.serverUrl.currentValue()) }
     val scope = rememberCoroutineScope()
     var saveStatus by remember { mutableStateOf<String?>(null) }
 
