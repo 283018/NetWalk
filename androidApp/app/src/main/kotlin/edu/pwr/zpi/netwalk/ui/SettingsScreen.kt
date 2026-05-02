@@ -26,7 +26,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URL
@@ -37,6 +36,10 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
 ) {
     var url by remember { mutableStateOf(viewModel.settings.serverUrl.currentValue()) }
+    var ip by remember { mutableStateOf(viewModel.settings.iperfIp.currentValue()) }
+    var port by remember { mutableStateOf(viewModel.settings.iperfPort.currentValue()) }
+    var args by remember { mutableStateOf(viewModel.settings.iperfArgs.currentValue()) }
+
     val scope = rememberCoroutineScope()
     var saveStatus by remember { mutableStateOf<String?>(null) }
 
@@ -49,59 +52,53 @@ fun SettingsScreen(
         Text(
             text = "Server Configuration",
             modifier = Modifier.padding(bottom = 8.dp),
+            color = MaterialTheme.colorScheme.primary,
         )
 
-        OutlinedTextField(
-            value = urlInput,
-            onValueChange = { urlInput = it },
-            label = { Text("Server URL") },
-            placeholder = {
-                Text(SettingsRepository.DEFAULT_URL, color = Color.Gray.copy(alpha = 0.6f))
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            textStyle = TextStyle(
-                color = Color(0xFF000000),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-            ),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                cursorColor = MaterialTheme.colorScheme.primary,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            ),
-            isError = urlInput.text.isNotEmpty() && !isValidUrl(urlInput.text),
-            supportingText = {
-                if (urlInput.text.isNotEmpty() && !isValidUrl(urlInput.text)) {
-                    Text(
-                        "Not a valid URL.",
-                        color = Color.Red,
-                    )
-                }
-            },
+        SettingStringField(
+            label = "Server Url",
+            value = url,
+            onValueChange = { url = it },
+            placeholder = viewModel.settings.serverUrl.defaultValue,
+            isValid = ::isValidUrl,
+            errorText = "Not a valid URL.",
+        )
+        SettingStringField(
+            label = "Iperf server IP",
+            value = ip,
+            onValueChange = { ip = it },
+            placeholder = viewModel.settings.iperfIp.defaultValue,
+            isValid = ::isValidIp,
+            errorText = "Not a valid IP address.",
+        )
+        SettingStringField(
+            label = "Iperf Port",
+            value = port,
+            onValueChange = { port = it },
+            placeholder = viewModel.settings.iperfPort.defaultValue,
+        )
+        SettingStringField(
+            label = "Iperf Arguments",
+            value = args,
+            onValueChange = { args = it },
+            placeholder = viewModel.settings.iperfArgs.defaultValue,
         )
 
         Button(
             onClick = {
-                if (isValidUrl(urlInput.text)) {
-                    scope.launch {
-                        viewModel.updateServerUrl(urlInput.text)
-                        saveStatus = "Saved"
-                        delay(2000)
-                        saveStatus = null
-                        onNavigateBack()
-                    }
-                } else {
-                    saveStatus = "Invalid URL"
+                scope.launch {
+                    viewModel.settings.serverUrl.update(url)
+                    viewModel.settings.iperfIp.update(ip)
+                    viewModel.settings.iperfPort.update(port)
+                    viewModel.settings.iperfArgs.update(args)
+
+                    saveStatus = "Saved"
+                    delay(1500)
+                    onNavigateBack()
                 }
             },
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(top = 8.dp),
-            enabled = urlInput.text.isNotEmpty(),
+            modifier = Modifier.align(Alignment.End),
+            enabled = isValidUrl(url) && isValidIp(ip),
         ) {
             Text("Save & apply")
         }
@@ -124,6 +121,44 @@ fun SettingsScreen(
     }
 }
 
+@Composable
+fun SettingStringField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    isValid: (String) -> Boolean = { true },
+    errorText: String = "Invalid input",
+) {
+    val isError = value.isNotEmpty() && !isValid(value)
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, color = MaterialTheme.colorScheme.primary) },
+        placeholder = { Text(placeholder, color = Color.Gray.copy(alpha = 0.6f)) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        isError = isError,
+        supportingText = {
+            if (isError) Text(errorText)
+        },
+        textStyle = TextStyle(
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            focusedBorderColor = Color.White,
+            unfocusedBorderColor = Color.Gray,
+            errorBorderColor = Color.Red,
+            errorLabelColor = Color.Red,
+        ),
+    )
+}
+
 private fun isValidUrl(url: String): Boolean =
     try {
         val parsed = java.net.URL(url)
@@ -131,3 +166,12 @@ private fun isValidUrl(url: String): Boolean =
     } catch (e: Exception) {
         false
     }
+
+private fun isValidIp(ip: String): Boolean {
+    val ipv4Pattern = """^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$""".toRegex()
+    val match = ipv4Pattern.matchEntire(ip) ?: return false
+
+    return match.groupValues.drop(1).all {
+        it.toInt() in 0..255
+    }
+}
