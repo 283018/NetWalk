@@ -24,7 +24,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -70,12 +72,12 @@ class NetworkViewModel(
         if (iperfJob?.isActive == true) return
         iperfLogs.clear()
 
-        iperfJob = viewModelScope.launch(Dispatchers.IO) {
-            val args = arrayOf("iperf3", "-c", "10.0.2.2", "-p", "5201", "-t", "5")
+        val commandToRun = iperfCommand.value
 
+        iperfJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 IperfRunner.runIperfLive(
-                    args,
+                    commandToRun,
                     object : IperfCallback {
                         override fun onOutput(message: String) {
                             viewModelScope.launch(Dispatchers.Main) {
@@ -155,5 +157,31 @@ class NetworkViewModel(
         }
     }
 
+    val iperfCommand = combine(
+        settings.iperfIp.flow,
+        settings.iperfPort.flow,
+        settings.iperfArgs.flow,
+    ) { ip, port, args ->
+        buildList {
+            add("iperf3")
+            add("-c")
+            add(ip)
+            add("-p")
+            add(port)
 
+            // split args string on whitespace and filters out empty string
+            addAll(
+                args
+                    .trim()
+                    .split("\\s+".toRegex())
+                    .filter { it.isNotBlank() },
+            )
+
+            add("--json")
+        }.toTypedArray()
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = arrayOf("iperf3"), // temporary fallback on init, reconstructed form default arguments later
+    )
 }

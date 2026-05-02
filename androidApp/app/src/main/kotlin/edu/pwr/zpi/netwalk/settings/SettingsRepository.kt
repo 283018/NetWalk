@@ -1,7 +1,6 @@
 package edu.pwr.zpi.netwalk.settings
 
 import android.content.Context
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -27,8 +26,12 @@ class SettingsRepository(
             context.dataStore.edit { prefs -> prefs[key] = value }
         }
 
+        // TODO: blocking calls are dangerous in ui
         fun currentValue(): T = runBlocking { flow.first() }
     }
 
     val serverUrl = PreferenceItem(stringPreferencesKey("server_url"), "http://10.0.2.2:8000")
+    val iperfIp = PreferenceItem(stringPreferencesKey("iperf_ip"), "10.0.2.2")
+    val iperfPort = PreferenceItem(stringPreferencesKey("iperf_port"), "5201")
+    val iperfArgs = PreferenceItem(stringPreferencesKey("iperf_args"), "-t 3")
 }
