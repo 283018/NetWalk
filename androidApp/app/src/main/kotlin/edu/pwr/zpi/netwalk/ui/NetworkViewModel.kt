@@ -25,6 +25,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -33,8 +34,15 @@ import java.time.LocalTime
 import kotlin.Double
 import kotlin.Pair
 
+data class NetworkSettingsState(
+    val serverUrl: String,
+    val iperfIp: String,
+    val iperfPort: String,
+    val iperfArgs: String,
+)
+
 class NetworkViewModel(
-    val settings: SettingsRepository,
+    private val settings: SettingsRepository,
 ) : ViewModel() {
     var uiStateNetwork by mutableStateOf<NetworkInfoData?>(null)
         private set
@@ -54,6 +62,41 @@ class NetworkViewModel(
 
     val iperfLogs = mutableStateListOf<String>()
     private var iperfJob: Job? = null
+
+    // exposing specific settings in viewModel as flows
+    val uiSettingsState: StateFlow<NetworkSettingsState> = combine(
+        settings.serverUrl.flow,
+        settings.iperfIp.flow,
+        settings.iperfPort.flow,
+        settings.iperfArgs.flow,
+    ) { url, ip, port, args ->
+        NetworkSettingsState(url, ip, port, args)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = NetworkSettingsState(
+            settings.serverUrl.defaultValue,
+            settings.iperfIp.defaultValue,
+            settings.iperfPort.defaultValue,
+            settings.iperfArgs.defaultValue,
+        ),
+    )
+
+    fun saveAllSettings(state: NetworkSettingsState) {
+        viewModelScope.launch {
+            settings.serverUrl.update(state.serverUrl)
+            settings.iperfIp.update(state.iperfIp)
+            settings.iperfPort.update(state.iperfPort)
+            settings.iperfArgs.update(state.iperfArgs)
+        }
+    }
+
+    val defaults = NetworkSettingsState(
+        settings.serverUrl.defaultValue,
+        settings.iperfIp.defaultValue,
+        settings.iperfPort.defaultValue,
+        settings.iperfArgs.defaultValue,
+    )
 
     init {
         // obserwujemy zmiane url

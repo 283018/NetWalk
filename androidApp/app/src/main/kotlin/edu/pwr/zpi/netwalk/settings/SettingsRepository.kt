@@ -5,10 +5,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.stateIn
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
 
@@ -26,8 +28,13 @@ class SettingsRepository(
             context.dataStore.edit { prefs -> prefs[key] = value }
         }
 
-        // TODO: blocking calls are dangerous in ui
-        fun currentValue(): T = runBlocking { flow.first() }
+        // for crating state flow, that does not hang ui then getting settings
+        fun asStateFlow(scope: CoroutineScope): StateFlow<T> =
+            flow.stateIn(
+                scope = scope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = defaultValue,
+            )
     }
 
     val serverUrl = PreferenceItem(stringPreferencesKey("server_url"), "http://10.0.2.2:8000")

@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URL
@@ -35,10 +37,15 @@ fun SettingsScreen(
     viewModel: NetworkViewModel,
     onNavigateBack: () -> Unit,
 ) {
-    var url by remember { mutableStateOf(viewModel.settings.serverUrl.currentValue()) }
-    var ip by remember { mutableStateOf(viewModel.settings.iperfIp.currentValue()) }
-    var port by remember { mutableStateOf(viewModel.settings.iperfPort.currentValue()) }
-    var args by remember { mutableStateOf(viewModel.settings.iperfArgs.currentValue()) }
+    // collected flows
+    val savedSettings by viewModel.uiSettingsState.collectAsStateWithLifecycle()
+
+    // local state for ui editing
+    var editableSettings by remember { mutableStateOf(viewModel.uiSettingsState.value) }
+
+    LaunchedEffect(savedSettings) {
+        editableSettings = savedSettings
+    }
 
     val scope = rememberCoroutineScope()
     var saveStatus by remember { mutableStateOf<String?>(null) }
@@ -57,48 +64,48 @@ fun SettingsScreen(
 
         SettingStringField(
             label = "Server Url",
-            value = url,
-            onValueChange = { url = it },
-            placeholder = viewModel.settings.serverUrl.defaultValue,
+            value = editableSettings.serverUrl,
+            onValueChange = { editableSettings = editableSettings.copy(serverUrl = it) },
+            placeholder = viewModel.defaults.serverUrl,
             isValid = ::isValidUrl,
             errorText = "Not a valid URL.",
         )
+
         SettingStringField(
             label = "Iperf server IP",
-            value = ip,
-            onValueChange = { ip = it },
-            placeholder = viewModel.settings.iperfIp.defaultValue,
+            value = editableSettings.iperfIp,
+            onValueChange = { editableSettings = editableSettings.copy(iperfIp = it) },
+            placeholder = viewModel.defaults.iperfIp,
             isValid = ::isValidIp,
             errorText = "Not a valid IP address.",
         )
+
         SettingStringField(
             label = "Iperf Port",
-            value = port,
-            onValueChange = { port = it },
-            placeholder = viewModel.settings.iperfPort.defaultValue,
+            value = editableSettings.iperfPort,
+            onValueChange = { editableSettings = editableSettings.copy(iperfPort = it) },
+            placeholder = viewModel.defaults.iperfPort,
         )
+
         SettingStringField(
             label = "Iperf Arguments",
-            value = args,
-            onValueChange = { args = it },
-            placeholder = viewModel.settings.iperfArgs.defaultValue,
+            value = editableSettings.iperfArgs,
+            onValueChange = { editableSettings = editableSettings.copy(iperfArgs = it) },
+            placeholder = viewModel.defaults.iperfArgs,
         )
 
         Button(
             onClick = {
                 scope.launch {
-                    viewModel.settings.serverUrl.update(url)
-                    viewModel.settings.iperfIp.update(ip)
-                    viewModel.settings.iperfPort.update(port)
-                    viewModel.settings.iperfArgs.update(args)
+                    viewModel.saveAllSettings(editableSettings)
 
                     saveStatus = "Saved"
-                    delay(1500)
+                    delay(1000)
                     onNavigateBack()
                 }
             },
             modifier = Modifier.align(Alignment.End),
-            enabled = isValidUrl(url) && isValidIp(ip),
+            enabled = isValidUrl(editableSettings.serverUrl) && isValidIp(editableSettings.iperfIp),
         ) {
             Text("Save & apply")
         }
