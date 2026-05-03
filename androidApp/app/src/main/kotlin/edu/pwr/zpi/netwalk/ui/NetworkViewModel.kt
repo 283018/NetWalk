@@ -30,6 +30,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.time.LocalTime
 import kotlin.Double
 import kotlin.Pair
@@ -62,6 +65,9 @@ class NetworkViewModel(
 
     val iperfLogs = mutableStateListOf<String>()
     private var iperfJob: Job? = null
+
+    private val iperfMutex = Mutex()
+    private var lastIperfTime = 0L
 
     // exposing specific settings in viewModel as flows
     val uiSettingsState: StateFlow<NetworkSettingsState> = combine(
@@ -163,16 +169,42 @@ class NetworkViewModel(
                     val networkAsyncData = async { NetworkInfoFetcher.fetchNetworkInfo(tm, context) }
                     val locationAsyncData = async { getCurrentLocation(context) }
 
+                    val now = System.currentTimeMillis()
+                    // TODO: add timings to separate configs field
+                    val shouldRunIperf = now - lastIperfTime > 10_000
+
+                    val iperfDeferred = if (shouldRunIperf) {
+                        lastIperfTime = now
+                        async(Dispatchers.IO) {
+                            iperfMutex.withLock {
+                                runCatching {
+                                    withTimeout(1000) {
+                                        IperfRunner.runIperfOnce(iperfCommand.value)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    }
+
                     val networkData = networkAsyncData.await()
                     val locationData = locationAsyncData.await()
                     val systemData = SystemInfoFetcher.fetchFullSystemInfo(context)
+                    val iperfResult = iperfDeferred?.await()
 
                     uiStateNetwork = networkData
                     uiStateLocation = locationData
                     uiStateSystem = systemData
 
                     val (lat, lon) = locationData
-                    val request = networkData.toMeasurementsRequest(lat, lon, systemData)
+
+                    val request = networkData.toMeasurementsRequest(
+                        latitude = lat,
+                        longitude = lon,
+                        systemData = systemData,
+                        iperfRaw = iperfResult?.getOrNull(),
+                    )
                     sendToServer(request)
                 } else {
                     lastStatus = "Permissions missing - cannot fetch data."
