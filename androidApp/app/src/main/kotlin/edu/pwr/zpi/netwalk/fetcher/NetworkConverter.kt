@@ -50,6 +50,13 @@ object NetworkConverter {
 
     fun calculateNrMhz(nrarfcn: Int): Pair<Double, Double>? = null
 
+    fun calculateNrBandwidth(bandwidths: IntArray?): Int? {
+        if (bandwidths == null || bandwidths.isEmpty()) return null
+
+        val totalKHz = bandwidths.sum()
+        return if (totalKHz > 0) totalKHz / 1000 else null
+    }
+
     fun duplexModetoString(duplexMode: Int?): String =
         when (duplexMode) {
             1 -> "FDD"

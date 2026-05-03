@@ -23,6 +23,7 @@ data class MeasurementItem(
     val session_id: String,
     val android_id: String? = null,
     val imei: String? = null,
+    val cid: Long? = null, // Cell identity
     val measured_at: String, // using ISO 8901 as datetime
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -51,9 +52,11 @@ data class MeasurementRequest(
 data class LteNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
+    val cid: Long,
     val earfcn: Int,
     val tac: Int,
     val bands: List<Int>,
+    val bandwidth: Int,
     val rsrp: Int,
     val rsrq: Int,
     val rssi: Int,
@@ -66,9 +69,11 @@ data class LteNetworkInfo(
 data class NrNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
+    val cid: Long,
     val nrarfcn: Int,
     val tac: Int,
     val bands: List<Int>,
+    val bandwidth: Int?,
     val ssRsrp: Int,
     val ssRsrq: Int,
     val ssSinr: Int,
@@ -102,6 +107,7 @@ fun NetworkInfoData.toMeasurementsRequest(
         rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp, // measured in dBm
         rsrq = servingNr?.ssRsrq ?: servingLte?.rsrq, // measured in dB
         sinr = servingNr?.ssSinr ?: servingLte?.sinr, // measured in dB
+        cid = servingNr?.cid ?: servingLte?.cid,
         cell_id = servingLte?.pci?.toString() ?: servingNr?.pci?.toString(),
         tac = servingNr?.tac ?: servingLte?.tac,
         radio_frequency = servingNr?.nrarfcn ?: servingLte?.earfcn,
@@ -126,9 +132,11 @@ fun getLteInfo(
     return LteNetworkInfo(
         isServing = cell.isRegistered,
         pci = id.pci,
+        cid = id.ci.toLong(),
         earfcn = id.earfcn,
         tac = id.tac,
         bands = id.bands.toList(),
+        bandwidth = id.bandwidth / 1000, // MHz
         rsrp = signal.rsrp,
         rsrq = signal.rsrq,
         rssi = signal.rssi,
@@ -146,14 +154,17 @@ fun getNrInfo(
     val id = cell.cellIdentity as CellIdentityNr
     val signal = cell.cellSignalStrength as CellSignalStrengthNr
 
+    val bandwidth = NetworkConverter.calculateNrBandwidth(tm.serviceState?.cellBandwidths)
     val duplexMode = NetworkConverter.duplexModetoString(tm.serviceState?.duplexMode)
 
     return NrNetworkInfo(
         isServing = cell.isRegistered,
         pci = id.pci,
+        cid = id.nci,
         nrarfcn = id.nrarfcn,
         tac = id.tac,
         bands = id.bands.toList(),
+        bandwidth = bandwidth,
         ssRsrp = signal.ssRsrp,
         ssRsrq = signal.ssRsrq,
         ssSinr = signal.ssSinr,
