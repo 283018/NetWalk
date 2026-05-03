@@ -174,6 +174,11 @@ fun NrCellCard(cell: NrNetworkInfo) {
     val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
     val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
 
+    val rsrpDisplay = cell.ssRsrp?.let { "$it dBm" } ?: "-"
+    val rsrqDisplay = cell.ssRsrq?.let { "$it dB" } ?: "-"
+    val sinrDisplay = cell.ssSinr?.let { "$it dB" } ?: "-"
+    val tacDisplay = cell.tac?.toString() ?: "-"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CardColor),
@@ -198,12 +203,12 @@ fun NrCellCard(cell: NrNetworkInfo) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color.Gray)
             ParameterGrid(
                 listOf(
-                    "NR-ARFCN(Band)" to "${cell.nrarfcn}(${cell.bands.joinToString()})",
+                    "NR-ARFCN(Band)" to "${cell.nrarfcn} (${cell.bands.joinToString()})",
                     "Duplex mode" to cell.duplexMode,
-                    "TAC" to "${cell.tac}",
-                    "SS-RSRP" to "${cell.ssRsrp} dBm",
-                    "SS-RSRQ" to "${cell.ssRsrq} dB",
-                    "SS-SINR" to "${cell.ssSinr} dB",
+                    "TAC" to tacDisplay,
+                    "SS-RSRP" to rsrpDisplay,
+                    "SS-RSRQ" to rsrqDisplay,
+                    "SS-SINR" to sinrDisplay,
                     "Freq DL" to dlDisplay,
                     "Freq UL" to ulDisplay,
                 ),
@@ -217,6 +222,12 @@ fun LteCellCard(cell: LteNetworkInfo) {
     val freqs = cell.frequencies
     val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
     val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
+
+    val rsrpDisplay = cell.rsrp?.let { "$it dBm" } ?: "-"
+    val rssiDisplay = cell.rssi?.let { "$it dBm" } ?: "-"
+    val rsrqDisplay = cell.rsrq?.let { "$it dB" } ?: "-"
+    val sinrDisplay = cell.sinr?.let { "$it dB" } ?: "-"
+    val tacDisplay = cell.tac?.toString() ?: "-"
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CardColor),
@@ -244,10 +255,11 @@ fun LteCellCard(cell: LteNetworkInfo) {
                     "EARFCN" to cell.earfcn.toString(),
                     "Duplex mode" to cell.duplexMode,
                     "Band" to cell.bands.joinToString(),
-                    "RSRP" to "${cell.rsrp} dBm",
-                    "RSSI" to "${cell.rssi} dBm",
-                    "RSRQ" to "${cell.rsrq} dB",
-                    "SINR" to "${cell.sinr} dB",
+                    "TAC" to tacDisplay,
+                    "RSRP" to rsrpDisplay,
+                    "RSSI" to rssiDisplay,
+                    "RSRQ" to rsrqDisplay,
+                    "SINR" to sinrDisplay,
                     "Freq DL" to dlDisplay,
                     "Freq UL" to ulDisplay,
                 ),
