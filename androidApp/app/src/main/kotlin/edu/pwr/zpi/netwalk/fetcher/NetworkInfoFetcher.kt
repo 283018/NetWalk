@@ -21,7 +21,7 @@ import kotlin.coroutines.resume
 @Serializable
 data class MeasurementItem(
     val session_id: String,
-    val imsi: String,
+    val android_id: String? = null,
     val imei: String? = null,
     val measured_at: String, // using ISO 8901 as datetime
     val latitude: Double? = null,
@@ -92,7 +92,7 @@ fun NetworkInfoData.toMeasurementsRequest(
 
     val item = MeasurementItem(
         session_id = "550e8400-e29b-41d4-a716-446655440000", // hardcoded for tests
-        imsi = "1234567890987654321",
+        android_id = systemData.android_id,
         measured_at = Instant.now().toString(),
         latitude = latitude,
         longitude = longitude,

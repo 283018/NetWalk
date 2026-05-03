@@ -1,10 +1,13 @@
 package edu.pwr.zpi.netwalk.system
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.BatteryManager
 import android.os.Build
+import android.provider.Settings
 
 data class SystemData(
+    val android_id: String?,
     val battery_level: Int,
     val battery_temp: Double?,
     val os_version: String = "Android ${Build.VERSION.RELEASE}",
@@ -13,19 +16,22 @@ data class SystemData(
 object SystemInfoFetcher {
     fun fetchFullSystemInfo(context: Context): SystemData =
         SystemData(
+            android_id = getAndroidId(context),
             battery_level = getBatteryLevel(context),
             battery_temp = getBatteryTemp(context),
         )
 
-    /* Identifiers in sdk >29 are not easily acquireable
-    fun getImei(context: Context): String? {
+    /* Android ID - 64 bitowy identyfikator unikalny dla każdego użytkownika i każdej aplikacji - może się zmienić
+       jedynie, jeśli użytkownik zresetuje telefon do ustawień fabrycznych
 
-    }
-
-
-    fun getImsi(context: Context): String {
-
-    }*/
+       IMSI i IMEI są niedostępne bez specjalnych uprawnień, które mogą otrzymać:
+              - aplikacje preinstalowane przez producenta telefonu
+              - aplikacje z tym samym kluczem co system operacyjny
+              - aplikacje operatora komórkowego
+     */
+    @SuppressLint("HardwareIds")
+    fun getAndroidId(context: Context): String =
+        Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "Unknown"
 
     fun getBatteryLevel(context: Context): Int {
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
