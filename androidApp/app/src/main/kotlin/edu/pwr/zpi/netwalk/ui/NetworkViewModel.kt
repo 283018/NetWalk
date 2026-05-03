@@ -22,7 +22,6 @@ import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +30,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import java.time.LocalTime
 import kotlin.Double
@@ -166,32 +164,27 @@ class NetworkViewModel(
         collectionJob = viewModelScope.launch {
             while (isActive) {
                 if (NetworkInfoFetcher.hasRequiredPermissions(context)) {
-                    val networkAsyncData = async { NetworkInfoFetcher.fetchNetworkInfo(tm, context) }
-                    val locationAsyncData = async { getCurrentLocation(context) }
-
                     val now = System.currentTimeMillis()
                     // TODO: add timings to separate configs field
                     val shouldRunIperf = now - lastIperfTime > 10_000
 
-                    val iperfDeferred = if (shouldRunIperf) {
+                    val networkData = NetworkInfoFetcher.fetchNetworkInfo(tm, context)
+                    val locationData = getCurrentLocation(context)
+                    val iperfResult = if (shouldRunIperf) {
                         lastIperfTime = now
-                        async(Dispatchers.IO) {
-                            iperfMutex.withLock {
-                                runCatching {
-                                    withTimeout(1000) {
-                                        IperfRunner.runIperfOnce(iperfCommand.value)
-                                    }
-                                }
+
+                        try {
+                            withTimeout(6000) {
+                                IperfRunner.runIperfOnce(iperfCommand.value)
                             }
+                        } catch (e: Exception) {
+                            null
                         }
                     } else {
                         null
                     }
 
-                    val networkData = networkAsyncData.await()
-                    val locationData = locationAsyncData.await()
                     val systemData = SystemInfoFetcher.fetchFullSystemInfo(context)
-                    val iperfResult = iperfDeferred?.await()
 
                     uiStateNetwork = networkData
                     uiStateLocation = locationData
@@ -203,7 +196,7 @@ class NetworkViewModel(
                         latitude = lat,
                         longitude = lon,
                         systemData = systemData,
-                        iperfRaw = iperfResult?.getOrNull(),
+                        iperfRaw = iperfResult,
                     )
                     sendToServer(request)
                 } else {

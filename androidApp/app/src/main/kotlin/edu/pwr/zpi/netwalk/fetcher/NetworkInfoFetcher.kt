@@ -13,6 +13,7 @@ import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
@@ -43,6 +44,8 @@ data class MeasurementItem(
     val throughput_mbps: Double? = null,
     val test_start_time: String? = null,
     val test_end_time: String? = null,
+    // TODO: merge it into flat measurement json
+    val iperfJson: String? = null,
 )
 
 @Serializable
@@ -95,9 +98,12 @@ fun NetworkInfoData.toMeasurementsRequest(
     latitude: Double?,
     longitude: Double?,
     systemData: SystemData,
+    iperfRaw: String? = null,
 ): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
+
+    val parsed = iperfRaw?.let { parseIperfJsonSafe(it) }
 
     val item = MeasurementItem(
         session_id = "550e8400-e29b-41d4-a716-446655440000", // hardcoded for tests
@@ -117,6 +123,12 @@ fun NetworkInfoData.toMeasurementsRequest(
         bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
         battery_level = systemData.battery_level,
         battery_temp = systemData.battery_temp,
+        // iperf resulsts
+        throughput_mbps = parsed?.throughputMbps,
+        test_start_time = parsed?.startTime,
+        test_end_time = parsed?.endTime,
+        // TODO: integrate full collected data into main measurement response
+        iperfJson = iperfRaw,
     )
 
     return MeasurementRequest(measurements = listOf(item))
