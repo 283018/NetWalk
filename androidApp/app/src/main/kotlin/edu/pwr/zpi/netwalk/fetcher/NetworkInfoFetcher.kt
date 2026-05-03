@@ -36,6 +36,7 @@ data class MeasurementItem(
     val cell_id: String? = null,
     val radio_frequency: Int? = null, // EARFCN for LTE, NR-ARFCN for 5G
     val band: Int? = null,
+    val bandwidth: Int?,
     val battery_level: Int? = null,
     val battery_temp: Double? = null,
     val os_version: String? = "Android ${Build.VERSION.RELEASE}",
@@ -113,6 +114,7 @@ fun NetworkInfoData.toMeasurementsRequest(
         tac = servingNr?.tac ?: servingLte?.tac,
         radio_frequency = servingNr?.nrarfcn ?: servingLte?.earfcn,
         band = servingNr?.bands?.firstOrNull() ?: servingLte?.bands?.firstOrNull(),
+        bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
         battery_level = systemData.battery_level,
         battery_temp = systemData.battery_temp,
     )
