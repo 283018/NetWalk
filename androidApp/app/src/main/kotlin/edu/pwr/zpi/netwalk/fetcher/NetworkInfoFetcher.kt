@@ -9,6 +9,7 @@ import android.telephony.CellInfo
 import android.telephony.CellInfoLte
 import android.telephony.CellInfoNr
 import android.telephony.CellSignalStrengthNr
+import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
@@ -52,15 +53,15 @@ data class MeasurementRequest(
 data class LteNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
-    val cid: Long,
+    val cid: Long?,
     val earfcn: Int,
-    val tac: Int,
+    val tac: Int?,
     val bands: List<Int>,
-    val bandwidth: Int,
-    val rsrp: Int,
-    val rsrq: Int,
-    val rssi: Int,
-    val sinr: Int,
+    val bandwidth: Int?,
+    val rsrp: Int?,
+    val rsrq: Int?,
+    val rssi: Int?,
+    val sinr: Int?,
     val frequencies: Pair<Double, Double>?,
     val duplexMode: String,
 )
@@ -69,14 +70,14 @@ data class LteNetworkInfo(
 data class NrNetworkInfo(
     val isServing: Boolean,
     val pci: Int,
-    val cid: Long,
+    val cid: Long?,
     val nrarfcn: Int,
-    val tac: Int,
+    val tac: Int?,
     val bands: List<Int>,
     val bandwidth: Int?,
-    val ssRsrp: Int,
-    val ssRsrq: Int,
-    val ssSinr: Int,
+    val ssRsrp: Int?,
+    val ssRsrq: Int?,
+    val ssSinr: Int?,
     val frequencies: Pair<Double, Double>?,
     val duplexMode: String,
 )
@@ -132,15 +133,15 @@ fun getLteInfo(
     return LteNetworkInfo(
         isServing = cell.isRegistered,
         pci = id.pci,
-        cid = id.ci.toLong(),
+        cid = unavailableToNull(id.ci)?.toLong(),
         earfcn = id.earfcn,
-        tac = id.tac,
+        tac = unavailableToNull(id.tac),
         bands = id.bands.toList(),
-        bandwidth = id.bandwidth / 1000, // MHz
-        rsrp = signal.rsrp,
-        rsrq = signal.rsrq,
-        rssi = signal.rssi,
-        sinr = signal.rssnr,
+        bandwidth = unavailableToNull(id.bandwidth)?.div(1000), // MHz
+        rsrp = unavailableToNull(signal.rsrp),
+        rsrq = unavailableToNull(signal.rsrq),
+        rssi = unavailableToNull(signal.rssi),
+        sinr = unavailableToNull(signal.rssnr),
         frequencies = NetworkConverter.calculateLteMhz(id.earfcn, id.bands.firstOrNull()),
         duplexMode = duplexMode,
     )
@@ -149,29 +150,43 @@ fun getLteInfo(
 @RequiresPermission(allOf = [Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_PHONE_STATE])
 fun getNrInfo(
     cell: CellInfoNr,
-    tm: TelephonyManager,
+    currentServiceState: ServiceState?,
 ): NrNetworkInfo {
     val id = cell.cellIdentity as CellIdentityNr
     val signal = cell.cellSignalStrength as CellSignalStrengthNr
 
-    val bandwidth = NetworkConverter.calculateNrBandwidth(tm.serviceState?.cellBandwidths)
-    val duplexMode = NetworkConverter.duplexModetoString(tm.serviceState?.duplexMode)
+    val cid = if (id.nci != Long.MAX_VALUE && id.nci != 0L) id.nci else null
+
+    val bandwidth = if (cell.isRegistered) {
+        NetworkConverter.calculateNrBandwidth(currentServiceState?.cellBandwidths)
+    } else {
+        null
+    }
+
+    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode)
 
     return NrNetworkInfo(
         isServing = cell.isRegistered,
         pci = id.pci,
-        cid = id.nci,
+        cid = cid,
         nrarfcn = id.nrarfcn,
-        tac = id.tac,
+        tac = unavailableToNull(id.tac),
         bands = id.bands.toList(),
         bandwidth = bandwidth,
-        ssRsrp = signal.ssRsrp,
-        ssRsrq = signal.ssRsrq,
-        ssSinr = signal.ssSinr,
+        ssRsrp = unavailableToNull(signal.ssRsrp),
+        ssRsrq = unavailableToNull(signal.ssRsrq),
+        ssSinr = unavailableToNull(signal.ssSinr),
         frequencies = NetworkConverter.calculateNrMhz(id.nrarfcn),
         duplexMode = duplexMode,
     )
 }
+
+fun unavailableToNull(value: Int?): Int? =
+    if (value != Int.MAX_VALUE) {
+        value
+    } else {
+        null
+    }
 
 object NetworkInfoFetcher {
     private val REQUIRED_PERMISSIONS =
@@ -221,11 +236,12 @@ object NetworkInfoFetcher {
                 override fun onCellInfo(activeCellInfo: MutableList<CellInfo>) {
                     val lteCells = mutableListOf<LteNetworkInfo>()
                     val nrCells = mutableListOf<NrNetworkInfo>()
+                    val serviceState = tm.serviceState
 
                     for (cell in activeCellInfo) {
                         when (cell) {
                             is CellInfoLte -> lteCells.add(getLteInfo(cell, tm))
-                            is CellInfoNr -> nrCells.add(getNrInfo(cell, tm))
+                            is CellInfoNr -> nrCells.add(getNrInfo(cell, serviceState))
                         }
                     }
 
