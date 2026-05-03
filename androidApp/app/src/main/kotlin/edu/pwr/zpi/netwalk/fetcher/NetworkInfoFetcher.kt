@@ -123,12 +123,12 @@ fun NetworkInfoData.toMeasurementsRequest(
 @RequiresPermission(allOf = [Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_PHONE_STATE])
 fun getLteInfo(
     cell: CellInfoLte,
-    tm: TelephonyManager,
+    currentServiceState: ServiceState?,
 ): LteNetworkInfo {
     val id = cell.cellIdentity
     val signal = cell.cellSignalStrength
 
-    val duplexMode = NetworkConverter.duplexModetoString(tm.serviceState?.duplexMode)
+    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode)
 
     return LteNetworkInfo(
         isServing = cell.isRegistered,
@@ -240,7 +240,7 @@ object NetworkInfoFetcher {
 
                     for (cell in activeCellInfo) {
                         when (cell) {
-                            is CellInfoLte -> lteCells.add(getLteInfo(cell, tm))
+                            is CellInfoLte -> lteCells.add(getLteInfo(cell, serviceState))
                             is CellInfoNr -> nrCells.add(getNrInfo(cell, serviceState))
                         }
                     }
