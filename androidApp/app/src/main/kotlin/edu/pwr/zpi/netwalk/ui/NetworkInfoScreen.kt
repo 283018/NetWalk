@@ -199,6 +199,7 @@ fun NrCellCard(cell: NrNetworkInfo) {
             ParameterGrid(
                 listOf(
                     "NR-ARFCN(Band)" to "${cell.nrarfcn}(${cell.bands.joinToString()})",
+                    "Duplex mode" to cell.duplexMode,
                     "TAC" to "${cell.tac}",
                     "SS-RSRP" to "${cell.ssRsrp} dBm",
                     "SS-RSRQ" to "${cell.ssRsrq} dB",
@@ -241,6 +242,7 @@ fun LteCellCard(cell: LteNetworkInfo) {
             ParameterGrid(
                 listOf(
                     "EARFCN" to cell.earfcn.toString(),
+                    "Duplex mode" to cell.duplexMode,
                     "Band" to cell.bands.joinToString(),
                     "RSRP" to "${cell.rsrp} dBm",
                     "RSSI" to "${cell.rssi} dBm",

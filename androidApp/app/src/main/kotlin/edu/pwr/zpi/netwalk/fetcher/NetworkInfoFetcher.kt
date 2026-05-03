@@ -113,9 +113,15 @@ fun NetworkInfoData.toMeasurementsRequest(
     return MeasurementRequest(measurements = listOf(item))
 }
 
-fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
+@RequiresPermission(allOf = [Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_PHONE_STATE])
+fun getLteInfo(
+    cell: CellInfoLte,
+    tm: TelephonyManager,
+): LteNetworkInfo {
     val id = cell.cellIdentity
     val signal = cell.cellSignalStrength
+
+    val duplexMode = NetworkConverter.duplexModetoString(tm.serviceState?.duplexMode)
 
     return LteNetworkInfo(
         isServing = cell.isRegistered,
@@ -128,13 +134,19 @@ fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
         rssi = signal.rssi,
         sinr = signal.rssnr,
         frequencies = NetworkConverter.calculateLteMhz(id.earfcn, id.bands.firstOrNull()),
-        duplexMode = NetworkConverter.getLTEDuplexMode(id.bands.firstOrNull()),
+        duplexMode = duplexMode,
     )
 }
 
-fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
+@RequiresPermission(allOf = [Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.READ_PHONE_STATE])
+fun getNrInfo(
+    cell: CellInfoNr,
+    tm: TelephonyManager,
+): NrNetworkInfo {
     val id = cell.cellIdentity as CellIdentityNr
     val signal = cell.cellSignalStrength as CellSignalStrengthNr
+
+    val duplexMode = NetworkConverter.duplexModetoString(tm.serviceState?.duplexMode)
 
     return NrNetworkInfo(
         isServing = cell.isRegistered,
@@ -146,7 +158,7 @@ fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
         ssRsrq = signal.ssRsrq,
         ssSinr = signal.ssSinr,
         frequencies = NetworkConverter.calculateNrMhz(id.nrarfcn),
-        duplexMode = NetworkConverter.getNrDuplexMode(id.bands.firstOrNull()),
+        duplexMode = duplexMode,
     )
 }
 
@@ -189,15 +201,20 @@ object NetworkInfoFetcher {
         tm.requestCellInfoUpdate(
             context.mainExecutor,
             object : TelephonyManager.CellInfoCallback() {
-                @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+                @RequiresPermission(
+                    allOf = [
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.READ_PHONE_STATE,
+                    ],
+                )
                 override fun onCellInfo(activeCellInfo: MutableList<CellInfo>) {
                     val lteCells = mutableListOf<LteNetworkInfo>()
                     val nrCells = mutableListOf<NrNetworkInfo>()
 
                     for (cell in activeCellInfo) {
                         when (cell) {
-                            is CellInfoLte -> lteCells.add(getLteInfo(cell))
-                            is CellInfoNr -> nrCells.add(getNrInfo(cell))
+                            is CellInfoLte -> lteCells.add(getLteInfo(cell, tm))
+                            is CellInfoNr -> nrCells.add(getNrInfo(cell, tm))
                         }
                     }
 

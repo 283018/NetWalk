@@ -50,32 +50,10 @@ object NetworkConverter {
 
     fun calculateNrMhz(nrarfcn: Int): Pair<Double, Double>? = null
 
-    fun getLTEDuplexMode(band: Int?): String =
-        when (band) {
-            // FDD
-            in 1..28, 30, 31, in 65..88 -> "FDD"
-
-            // TDD
-            in 33..53, 103 -> "TDD"
-
-            29, 32, 67, 68 -> "SDL"
-
-            else -> "Unknown"
-        }
-
-    fun getNrDuplexMode(band: Int?): String =
-        when (band) {
-            // FDD
-            in 1..26, 28, 30, in 65..74, in 80..84, 86, 89, 91, 92, 93, 94, 95 -> "FDD"
-
-            // TDD
-            in 34..41, 46, 47, 48, 50, 51, 53, 54,
-            in 77..79, 90, 96, 101, 102, 104, 105, in 257..263, in 270..273,
-            -> "TDD"
-
-            29, 32, 75, 76 -> "SDL"
-            80, 81, 82, 83, 84, 86, 95 -> "SUL"
-
+    fun duplexModetoString(duplexMode: Int?): String =
+        when (duplexMode) {
+            1 -> "FDD"
+            2 -> "TDD"
             else -> "Unknown"
         }
 }
