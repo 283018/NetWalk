@@ -59,6 +59,7 @@ data class LteNetworkInfo(
     val rssi: Int,
     val sinr: Int,
     val frequencies: Pair<Double, Double>?,
+    val duplexMode: String,
 )
 
 @Serializable
@@ -72,6 +73,7 @@ data class NrNetworkInfo(
     val ssRsrq: Int,
     val ssSinr: Int,
     val frequencies: Pair<Double, Double>?,
+    val duplexMode: String,
 )
 
 @Serializable
@@ -125,7 +127,8 @@ fun getLteInfo(cell: CellInfoLte): LteNetworkInfo {
         rsrq = signal.rsrq,
         rssi = signal.rssi,
         sinr = signal.rssnr,
-        frequencies = FrequencyCalculator.calculateLteMhz(id.earfcn, id.bands.joinToString()),
+        frequencies = NetworkConverter.calculateLteMhz(id.earfcn, id.bands.firstOrNull()),
+        duplexMode = NetworkConverter.getLTEDuplexMode(id.bands.firstOrNull()),
     )
 }
 
@@ -142,7 +145,8 @@ fun getNrInfo(cell: CellInfoNr): NrNetworkInfo {
         ssRsrp = signal.ssRsrp,
         ssRsrq = signal.ssRsrq,
         ssSinr = signal.ssSinr,
-        frequencies = FrequencyCalculator.calculateNrMhz(id.nrarfcn),
+        frequencies = NetworkConverter.calculateNrMhz(id.nrarfcn),
+        duplexMode = NetworkConverter.getNrDuplexMode(id.bands.firstOrNull()),
     )
 }
 
