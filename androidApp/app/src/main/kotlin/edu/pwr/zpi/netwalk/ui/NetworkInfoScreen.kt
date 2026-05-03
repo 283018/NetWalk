@@ -50,6 +50,12 @@ import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.NrNetworkInfo
 import androidx.lifecycle.viewmodel.compose.viewModel as _viewModel
 
+private val BackgroundColor = Color(0xFF121212)
+private val SurfaceColor = Color(0xFF1E1E1E)
+private val CardColor = Color(0xFF252525)
+private val PrimaryColor = Color(0xFFD0BCFF)
+private val OutlineColor = Color(0xFF938F99)
+
 @Composable
 fun NetworkInfoScreen(
     tm: TelephonyManager,
@@ -86,11 +92,12 @@ fun NetworkInfoScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // Główny ekran
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundColor)) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 4.dp,
+            color = SurfaceColor,
+            shadowElevation = 8.dp,
         ) {
             Row(
                 modifier = Modifier
@@ -104,14 +111,14 @@ fun NetworkInfoScreen(
                     text = "Netwalk Monitor",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
+                    color = Color.White,
                 )
                 IconButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
                 }
             }
         }
 
-        // Główna część ekranu
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -129,7 +136,12 @@ fun NetworkInfoScreen(
                 batteryTemp = systemData?.battery_temp,
             )
 
-            Text("Active connections", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "Active connections",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
 
             networkData?.nrCells?.filter { it.isServing }?.forEach { NrCellCard(it) }
             networkData?.lteCells?.filter { it.isServing }?.forEach { LteCellCard(it) }
@@ -140,7 +152,11 @@ fun NetworkInfoScreen(
                 (networkData?.nrCells?.count { !it.isServing } ?: 0)
 
             if (neighborsCount > 0) {
-                Text("Neighbouring stations ($neighborsCount)", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Neighbouring stations ($neighborsCount)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                )
                 networkData?.nrCells?.filter { !it.isServing }?.forEach { NrCellCard(it) }
                 networkData?.lteCells?.filter { !it.isServing }?.forEach { LteCellCard(it) }
             }
@@ -155,18 +171,17 @@ fun NetworkInfoScreen(
 @Composable
 fun NrCellCard(cell: NrNetworkInfo) {
     val freqs = cell.frequencies
-
     val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
     val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = CardColor),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    color = if (cell.isServing) Color(0xFF4CAF50) else Color.Gray,
+                    color = if (cell.isServing) Color(0xFF388E3C) else Color(0xFF555555),
                     shape = RoundedCornerShape(4.dp),
                 ) {
                     Text(
@@ -178,9 +193,9 @@ fun NrCellCard(cell: NrNetworkInfo) {
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("PCI: ${cell.pci}", fontWeight = FontWeight.Bold)
+                Text("PCI: ${cell.pci}", fontWeight = FontWeight.Bold, color = Color.White)
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color.Gray)
             ParameterGrid(
                 listOf(
                     "NR-ARFCN(Band)" to "${cell.nrarfcn}(${cell.bands.joinToString()})",
@@ -199,17 +214,16 @@ fun NrCellCard(cell: NrNetworkInfo) {
 @Composable
 fun LteCellCard(cell: LteNetworkInfo) {
     val freqs = cell.frequencies
-
     val dlDisplay = freqs?.first?.let { "%.1f MHz".format(it) } ?: "-"
     val ulDisplay = freqs?.second?.let { "%.1f MHz".format(it) } ?: "-"
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = CardColor),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    color = if (cell.isServing) Color(0xFF2196F3) else Color.Gray,
+                    color = if (cell.isServing) Color(0xFF1976D2) else Color(0xFF555555),
                     shape = RoundedCornerShape(4.dp),
                 ) {
                     Text(
@@ -221,9 +235,9 @@ fun LteCellCard(cell: LteNetworkInfo) {
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("PCI: ${cell.pci}", fontWeight = FontWeight.Bold)
+                Text("PCI: ${cell.pci}", fontWeight = FontWeight.Bold, color = Color.White)
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp, color = Color.Gray)
             ParameterGrid(
                 listOf(
                     "EARFCN" to cell.earfcn.toString(),
@@ -246,26 +260,31 @@ fun HeaderCard(
     batteryLevel: Int,
     batteryTemp: Double?,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = SurfaceColor),
+    ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                Text("Technology", style = MaterialTheme.typography.labelMedium)
+                Text("Technology", style = MaterialTheme.typography.labelMedium, color = OutlineColor)
                 Text(
                     networkType, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = PrimaryColor,
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "Battery state", fontWeight = FontWeight.Bold,
+                    "Battery state", fontWeight = FontWeight.Bold, color = Color.White,
                     modifier = Modifier.padding(horizontal = 23.dp, vertical = 8.dp),
                 )
-
-                Text("Level: $batteryLevel%  Temp: $batteryTemp°C", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Level: $batteryLevel%  Temp: $batteryTemp°C", style = MaterialTheme.typography.bodySmall,
+                    color = OutlineColor,
+                )
             }
         }
     }
@@ -280,9 +299,12 @@ fun ParameterGrid(params: List<Pair<String, String>>) {
                     Column(modifier = Modifier.weight(1f).padding(vertical = 4.dp)) {
                         Text(
                             label, style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
+                            color = OutlineColor,
                         )
-                        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
                     }
                 }
             }
@@ -295,12 +317,15 @@ fun LocationCard(
     lat: Double?,
     lon: Double?,
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent),
+        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineColor),
+    ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(16.dp),
+                Icons.Default.LocationOn, contentDescription = null, tint = PrimaryColor,
+                modifier = Modifier.size(16.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -310,6 +335,7 @@ fun LocationCard(
                     "Waiting for GPS..."
                 },
                 style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
             )
         }
     }
@@ -319,13 +345,13 @@ fun LocationCard(
 fun StatusFooter(status: String) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = SurfaceColor,
     ) {
         Text(
             text = status,
             modifier = Modifier.padding(8.dp).navigationBarsPadding(),
             style = MaterialTheme.typography.labelSmall,
-            color = if (status.startsWith("Error")) Color.Red else Color(0xFF388E3C),
+            color = if (status.startsWith("Error")) Color(0xFFFFB4AB) else Color(0xFF81C784),
             maxLines = 1,
         )
     }
@@ -334,11 +360,19 @@ fun StatusFooter(status: String) {
 @Composable
 fun ErrorMessage(msg: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Color(0xFFFFEBEE), RoundedCornerShape(8.dp)).padding(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Color(0xFF370001),
+                RoundedCornerShape(8.dp),
+            ).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+        Icon(
+            Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFFB4AB),
+            modifier = Modifier.size(16.dp),
+        )
         Spacer(modifier = Modifier.width(8.dp))
-        Text(msg, color = Color.Red, fontSize = 11.sp)
+        Text(msg, color = Color(0xFFFFB4AB), fontSize = 11.sp)
     }
 }
