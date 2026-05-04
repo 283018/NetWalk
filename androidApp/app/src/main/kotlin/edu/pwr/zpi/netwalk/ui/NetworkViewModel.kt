@@ -15,6 +15,8 @@ import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.location.getCurrentLocation
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
+import edu.pwr.zpi.netwalk.system.SystemData
+import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -31,6 +33,10 @@ class NetworkViewModel(
         private set
     var uiStateLocation by mutableStateOf<Pair<Double?, Double?>>(null to null)
         private set
+
+    var uiStateSystem by mutableStateOf<SystemData?>(null)
+        private set
+
     var lastStatus by mutableStateOf("Waiting for first fetch...")
         private set
 
@@ -68,12 +74,14 @@ class NetworkViewModel(
 
                     val networkData = networkAsyncData.await()
                     val locationData = locationAsyncData.await()
+                    val systemData = SystemInfoFetcher.fetchFullSystemInfo(context)
 
                     uiStateNetwork = networkData
                     uiStateLocation = locationData
+                    uiStateSystem = systemData
 
                     val (lat, lon) = locationData
-                    val request = networkData.toMeasurementsRequest(lat, lon)
+                    val request = networkData.toMeasurementsRequest(lat, lon, systemData)
                     sendToServer(request)
                 } else {
                     lastStatus = "Permissions missing - cannot fetch data."

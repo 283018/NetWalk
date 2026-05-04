@@ -6,6 +6,7 @@ lifecycle = "2.9.0"
 ktlint = "14.2.0"
 composeBom = "2026.04.01"
 activityCompose = "1.13.0"
+material3 = "1.4.0"
 playServicesLocation = "21.3.0"
 navigationCompose = "2.9.8"
 datastore = "1.2.1"
@@ -14,6 +15,8 @@ datastore = "1.2.1"
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
