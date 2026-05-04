@@ -78,6 +78,9 @@ just frontend dev         # npm run dev (hot-reload)
 ### Android
 
 ``` sh
+# in order to compile iperf you need to initialize third-party submodule
+git submodule update --init --recursive
+
 just androidApp wrapper   # (first-time only) regenerate gradle wrapper
 just androidApp assemble  # build project
 ```
@@ -112,4 +115,3 @@ just androidApp lint      # ktlintCheck
 just androidApp format    # ktlintFormat
 just androidApp build     # build final APK (not ready yet)
 ```
->>>>>>> b1a8d2e (add readme with install instructions)
