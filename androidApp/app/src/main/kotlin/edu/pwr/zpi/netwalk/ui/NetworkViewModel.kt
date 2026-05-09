@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeout
 import java.time.LocalTime
 import kotlin.Double
@@ -64,7 +63,6 @@ class NetworkViewModel(
     val iperfLogs = mutableStateListOf<String>()
     private var iperfJob: Job? = null
 
-    private val iperfMutex = Mutex()
     private var lastIperfTime = 0L
 
     // exposing specific settings in viewModel as flows
