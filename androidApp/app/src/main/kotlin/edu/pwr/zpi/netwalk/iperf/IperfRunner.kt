@@ -9,6 +9,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -69,38 +70,64 @@ object IperfRunner {
 
 data class IperfParsed(
     val throughputMbps: Double?,
+    val meanRtt: Double?,
+    val minRtt: Double?,
+    val maxRtt: Double?,
+    val hostCpuTotal: Double?,
+    val remoteCpuTotal: Double?,
     val startTime: String?,
-    val endTime: String?,
+    val testDuration: Double?,
+    val retransmits: Long?,
 )
 
 fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
     try {
         val json = Json.parseToJsonElement(jsonString).jsonObject
 
+        val start = json["start"]?.jsonObject
         val end = json["end"]?.jsonObject
         val sumReceived = end?.get("sum_received")?.jsonObject
-        val bitsPerSecond = sumReceived?.get("bits_per_second")?.jsonPrimitive?.doubleOrNull
+        val cpuUtil = end?.get("cpu_utilization_percent")?.jsonObject
 
-        val start = json["start"]?.jsonObject
-        val timestamp = start?.get("timestamp")?.jsonObject
-
-        val startTime = timestamp?.get("time")?.jsonPrimitive?.contentOrNull
-        val endTime = json["end"]
-            ?.jsonObject
+        val streamData = end
             ?.get("streams")
             ?.jsonArray
-            ?.lastOrNull()
+            ?.firstOrNull()
             ?.jsonObject
-            ?.get("receiver")
-            ?.jsonObject
-            ?.get("end")
-            ?.jsonPrimitive
-            ?.contentOrNull
+        val reciverStats = streamData?.get("receiver")?.jsonObject
+        val senderStats = streamData?.get("sender")?.jsonObject
+
+        val timestamp = start?.get("timestamp")?.jsonObject
 
         IperfParsed(
-            throughputMbps = bitsPerSecond?.div(1_000_000.0), // -f flag foes not affect json output
-            startTime = startTime,
-            endTime = endTime,
+            // Throughput mbps
+            throughputMbps = sumReceived // f flag foes not affect json output
+                ?.get("bits_per_second")
+                ?.jsonPrimitive
+                ?.doubleOrNull
+                ?.div(1_000_000.0),
+            // latency and jitter
+            meanRtt = senderStats?.get("mean_rtt")?.jsonPrimitive?.doubleOrNull,
+            minRtt = senderStats?.get("min_rtt")?.jsonPrimitive?.doubleOrNull,
+            maxRtt = senderStats?.get("max_rtt")?.jsonPrimitive?.doubleOrNull,
+            // cpu utilization
+            hostCpuTotal = cpuUtil?.get("host_total")?.jsonPrimitive?.doubleOrNull,
+            remoteCpuTotal = cpuUtil?.get("remote_total")?.jsonPrimitive?.doubleOrNull,
+            // timing
+            startTime = start
+                ?.get("timestamp")
+                ?.jsonObject
+                ?.get("time")
+                ?.jsonPrimitive
+                ?.contentOrNull,
+            testDuration = sumReceived?.get("seconds")?.jsonPrimitive?.doubleOrNull,
+            // retransmits
+            retransmits = end
+                ?.get("sum_sent")
+                ?.jsonObject
+                ?.get("retransmits")
+                ?.jsonPrimitive
+                ?.longOrNull,
         )
     } catch (_: Exception) {
         null
