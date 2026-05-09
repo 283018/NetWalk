@@ -13,6 +13,7 @@ import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
+import edu.pwr.zpi.netwalk.iperf.IperfParsed
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -24,7 +25,6 @@ import kotlin.coroutines.resume
 data class MeasurementItem(
     val session_id: String,
     val android_id: String? = null,
-    val imei: String? = null,
     val cid: Long? = null, // Cell identity
     val measured_at: String, // using ISO 8901 as datetime
     val latitude: Double? = null,
@@ -44,9 +44,56 @@ data class MeasurementItem(
     val throughput_mbps: Double? = null,
     val test_start_time: String? = null,
     val test_end_time: String? = null,
-    // TODO: merge it into flat measurement json
-    val iperfJson: String? = null,
-)
+    val mean_rtt: Double? = null,
+    val min_rtt: Double? = null,
+    val max_rtt: Double? = null,
+    val host_cpu: Double? = null,
+    val remote_cpu: Double? = null,
+    val retransmits: Long? = null,
+    val iperf_json: String? = null,
+) {
+    constructor (
+        sessionId: String,
+        lat: Double?,
+        lon: Double?,
+        networkType: String,
+        servingNr: NrNetworkInfo?,
+        servingLte: LteNetworkInfo?,
+        measuredAt: String,
+        system: SystemData,
+        iperf: IperfParsed?,
+        iperfRaw: String?,
+    ) : this(
+        session_id = sessionId,
+        android_id = system.android_id,
+        cid = servingNr?.cid ?: servingLte?.cid,
+        measured_at = measuredAt,
+        latitude = lat,
+        longitude = lon,
+        rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp,
+        rsrq = servingNr?.ssRsrq ?: servingLte?.rsrq,
+        sinr = servingNr?.ssSinr ?: servingLte?.sinr,
+        network_type = networkType,
+        tac = servingNr?.tac ?: servingLte?.tac,
+        cell_id = servingNr?.pci?.toString() ?: servingLte?.pci?.toString(),
+        radio_frequency = servingNr?.nrarfcn ?: servingLte?.earfcn,
+        band = servingNr?.bands?.firstOrNull() ?: servingLte?.bands?.firstOrNull(),
+        bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
+        battery_level = system.battery_level,
+        battery_temp = system.battery_temp,
+        // os_version
+        throughput_mbps = iperf?.throughputMbps,
+        test_start_time = iperf?.startTime,
+        test_end_time = if (iperf != null) iperf.startTime else null,
+        mean_rtt = iperf?.meanRtt,
+        min_rtt = iperf?.minRtt,
+        max_rtt = iperf?.maxRtt,
+        host_cpu = iperf?.hostCpuTotal,
+        remote_cpu = iperf?.remoteCpuTotal,
+        retransmits = iperf?.retransmits,
+        iperf_json = iperfRaw,
+    )
+}
 
 @Serializable
 data class MeasurementRequest(
@@ -95,6 +142,7 @@ data class NetworkInfoData(
 
 // dodanie metody conversi "on runtime" bezpośredni do dataclass'u
 fun NetworkInfoData.toMeasurementsRequest(
+    sessionId: String,
     latitude: Double?,
     longitude: Double?,
     systemData: SystemData,
@@ -103,32 +151,19 @@ fun NetworkInfoData.toMeasurementsRequest(
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
 
-    val parsed = iperfRaw?.let { parseIperfJsonSafe(it) }
+    val iperfParsed = iperfRaw?.let { parseIperfJsonSafe(it) }
 
     val item = MeasurementItem(
-        session_id = "550e8400-e29b-41d4-a716-446655440000", // hardcoded for tests
-        android_id = systemData.android_id,
-        measured_at = Instant.now().toString(),
-        latitude = latitude,
-        longitude = longitude,
-        network_type = this.networkType,
-        rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp, // measured in dBm
-        rsrq = servingNr?.ssRsrq ?: servingLte?.rsrq, // measured in dB
-        sinr = servingNr?.ssSinr ?: servingLte?.sinr, // measured in dB
-        cid = servingNr?.cid ?: servingLte?.cid,
-        cell_id = servingLte?.pci?.toString() ?: servingNr?.pci?.toString(),
-        tac = servingNr?.tac ?: servingLte?.tac,
-        radio_frequency = servingNr?.nrarfcn ?: servingLte?.earfcn,
-        band = servingNr?.bands?.firstOrNull() ?: servingLte?.bands?.firstOrNull(),
-        bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
-        battery_level = systemData.battery_level,
-        battery_temp = systemData.battery_temp,
-        // iperf resulsts
-        throughput_mbps = parsed?.throughputMbps,
-        test_start_time = parsed?.startTime,
-        test_end_time = parsed?.endTime,
-        // TODO: integrate full collected data into main measurement response
-        iperfJson = iperfRaw,
+        sessionId = sessionId,
+        lat = latitude,
+        lon = longitude,
+        networkType = this.networkType,
+        servingNr = servingNr,
+        servingLte = servingLte,
+        measuredAt = Instant.now().toString(),
+        system = systemData,
+        iperf = iperfParsed,
+        iperfRaw = iperfRaw, // TODO: remove debug
     )
 
     return MeasurementRequest(measurements = listOf(item))

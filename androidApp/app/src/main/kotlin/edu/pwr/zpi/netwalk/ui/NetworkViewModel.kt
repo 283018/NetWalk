@@ -191,6 +191,7 @@ class NetworkViewModel(
                     val (lat, lon) = locationData
 
                     val request = networkData.toMeasurementsRequest(
+                        sessionId = "550e8400-e29b-41d4-a716-446655440000", // TODO: remove hardcoded
                         latitude = lat,
                         longitude = lon,
                         systemData = systemData,
