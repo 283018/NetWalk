@@ -3,6 +3,7 @@ package edu.pwr.zpi.netwalk.settings
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
@@ -41,4 +42,7 @@ class SettingsRepository(
     val iperfIp = PreferenceItem(stringPreferencesKey("iperf_ip"), "10.0.2.2")
     val iperfPort = PreferenceItem(stringPreferencesKey("iperf_port"), "5201")
     val iperfArgs = PreferenceItem(stringPreferencesKey("iperf_args"), "-t 3")
+
+    val passiveInterval = PreferenceItem(longPreferencesKey("passive_interval"), 3_000L)
+    val iperfInterval = PreferenceItem(longPreferencesKey("iperf_interval"), 10_000L)
 }

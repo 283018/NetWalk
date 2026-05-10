@@ -9,28 +9,24 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import edu.pwr.zpi.netwalk.collector.DataCollector
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
-import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
-import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.iperf.IperfCallback
 import edu.pwr.zpi.netwalk.iperf.IperfRunner
-import edu.pwr.zpi.netwalk.location.getCurrentLocation
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
-import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 import java.time.LocalTime
+import java.util.UUID
 import kotlin.Double
 import kotlin.Pair
 
@@ -53,6 +49,8 @@ class NetworkViewModel(
         private set
 
     var lastStatus by mutableStateOf("Waiting for first fetch...")
+        private set
+    var isCollecting by mutableStateOf(false)
         private set
 
     // na razie jest host dostosowany do android emulator któty jest dostępny razem z android sdk
@@ -98,6 +96,32 @@ class NetworkViewModel(
         settings.iperfIp.defaultValue,
         settings.iperfPort.defaultValue,
         settings.iperfArgs.defaultValue,
+    )
+
+    private val collector = DataCollector(
+        scope = viewModelScope,
+        getIperfCommand = { iperfCommand.value },
+        onStatusUpdate = { status -> lastStatus = status },
+        onPassiveDataUpdate = { network, location, system ->
+            uiStateNetwork = network
+            uiStateLocation = location
+            uiStateSystem = system
+        },
+        sendRequest = { request ->
+            viewModelScope.launch {
+                client
+                    ?.sendFullUpdate(request)
+                    ?.onSuccess {
+                        lastStatus = "Last send: Success (${LocalTime.now()})"
+                    }?.onFailure {
+                        lastStatus = "Error: ${it.localizedMessage}"
+                        println("Network Error: ${it.message}")
+                    } ?: run {
+                    lastStatus = "Error: NetworkClient not initialized"
+                    println("Network Error: client is null")
+                }
+            }
+        },
     )
 
     init {
@@ -156,55 +180,21 @@ class NetworkViewModel(
         tm: TelephonyManager,
         context: Context,
     ) {
-        // zapobiegamy rozpoczęciu kilku collectionJob
-        if (collectionJob?.isActive == true) return
+        // TODO: fix this
+        val passiveInterval = settings.passiveInterval.flow
+        val iperfInterval = settings.iperfInterval.flow
 
-        collectionJob = viewModelScope.launch {
-            while (isActive) {
-                if (NetworkInfoFetcher.hasRequiredPermissions(context)) {
-                    val now = System.currentTimeMillis()
-                    // TODO: add timings to separate configs field
-                    val shouldRunIperf = now - lastIperfTime > 10_000
+        collector.start(
+            tm = tm,
+            context = context,
+            passiveIntervalMs = passiveInterval,
+            iperfIntervalMs = iperfInterval,
+            sessionId = UUID.randomUUID().toString(),
+        )
+    }
 
-                    val networkData = NetworkInfoFetcher.fetchNetworkInfo(tm, context)
-                    val locationData = getCurrentLocation(context)
-                    val iperfResult = if (shouldRunIperf) {
-                        lastIperfTime = now
-
-                        try {
-                            withTimeout(6000) {
-                                IperfRunner.runIperfOnce(iperfCommand.value)
-                            }
-                        } catch (e: Exception) {
-                            null
-                        }
-                    } else {
-                        null
-                    }
-
-                    val systemData = SystemInfoFetcher.fetchFullSystemInfo(context)
-
-                    uiStateNetwork = networkData
-                    uiStateLocation = locationData
-                    uiStateSystem = systemData
-
-                    val (lat, lon) = locationData
-
-                    val request = networkData.toMeasurementsRequest(
-                        sessionId = "550e8400-e29b-41d4-a716-446655440000", // TODO: remove hardcoded
-                        latitude = lat,
-                        longitude = lon,
-                        systemData = systemData,
-                        iperfRaw = iperfResult,
-                    )
-                    sendToServer(request)
-                } else {
-                    lastStatus = "Permissions missing - cannot fetch data."
-                }
-
-                delay(5000)
-            }
-        }
+    fun stopCollection() {
+        collector.stop()
     }
 
     private fun sendToServer(request: MeasurementRequest) {
