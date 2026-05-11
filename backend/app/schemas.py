@@ -200,3 +200,34 @@ class BatchResponse(BaseModel):
 
     inserted: int
     batch_id: UUID | None = None
+
+
+# Statystyki dla dashboardu
+class StatisticsResponse(BaseModel):
+    total_measurements: int
+    unique_sessions: int
+    unique_devices: int
+
+    # rsrp
+    avg_rsrp: float | None
+    min_rsrp: int | None
+    max_rsrp: int | None
+    # sinr
+    avg_sinr: float | None
+    min_sinr: int | None
+    max_sinr: int | None
+
+    # prędkość
+    avg_throughput: float | None
+    max_throughput: float | None
+
+    #  wykresy i rozkłady
+    network_distribution: dict[str, int]
+    band_distribution: dict[str, int]
+    measurements_by_hour: dict[int, int]
+
+
+# Odpowiedź sesji
+class SessionResponse(BaseModel):
+    session_id: UUID
+    started_at: datetime
