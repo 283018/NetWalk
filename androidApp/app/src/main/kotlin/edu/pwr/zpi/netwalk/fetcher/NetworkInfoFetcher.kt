@@ -42,6 +42,9 @@ data class MeasurementItem(
     val battery_temp: Double? = null,
     val os_version: String? = "Android ${Build.VERSION.RELEASE}",
     val throughput_mbps: Double? = null,
+    val latency_ms: Double? = null,
+    val jitter_ms: Double? = null,
+    val cpu_utilization: Double? = null,
     val test_start_time: String? = null,
     val test_end_time: String? = null,
     val mean_rtt: Double? = null,
@@ -82,6 +85,12 @@ data class MeasurementItem(
         battery_level = system.battery_level,
         battery_temp = system.battery_temp,
         throughput_mbps = iperf?.throughputMbps,
+        latency_ms = iperf?.meanRtt,
+        jitter_ms = if (iperf?.maxRtt != null && iperf.minRtt != null) {
+            (iperf.maxRtt - iperf.minRtt)
+        } else {
+            null
+        },
         test_start_time = iperf?.startTime,
         test_end_time = if (iperf != null) iperf.startTime else null,
         mean_rtt = iperf?.meanRtt,
