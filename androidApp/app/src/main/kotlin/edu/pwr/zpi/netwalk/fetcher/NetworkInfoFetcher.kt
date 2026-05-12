@@ -178,7 +178,7 @@ fun getNrInfo(
         ssRsrp = unavailableToNull(signal.ssRsrp),
         ssRsrq = unavailableToNull(signal.ssRsrq),
         ssSinr = unavailableToNull(signal.ssSinr),
-        frequencies = NetworkConverter.calculateNrMhz(id.nrarfcn),
+        frequencies = NetworkConverter.calculateNrMhz(id.nrarfcn, id.bands.firstOrNull(), duplexMode),
         duplexMode = duplexMode,
     )
 }
