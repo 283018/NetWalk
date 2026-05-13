@@ -10,7 +10,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import edu.pwr.zpi.netwalk.collector.DataCollector
-import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.iperf.IperfCallback
 import edu.pwr.zpi.netwalk.iperf.IperfRunner
@@ -55,13 +54,10 @@ class NetworkViewModel(
 
     // na razie jest host dostosowany do android emulator któty jest dostępny razem z android sdk
     private var client: NetworkClient? = null
-    private var collectionJob: Job? = null
     private var currentServerUrl: String? = null
 
     val iperfLogs = mutableStateListOf<String>()
     private var iperfJob: Job? = null
-
-    private var lastIperfTime = 0L
 
     // exposing specific settings in viewModel as flows
     val uiSettingsState: StateFlow<NetworkSettingsState> = combine(
@@ -180,38 +176,26 @@ class NetworkViewModel(
         tm: TelephonyManager,
         context: Context,
     ) {
-        // TODO: fix this
-        val passiveInterval = settings.passiveInterval.flow
-        val iperfInterval = settings.iperfInterval.flow
+        if (isCollecting) return
 
-        collector.start(
-            tm = tm,
-            context = context,
-            passiveIntervalMs = passiveInterval,
-            iperfIntervalMs = iperfInterval,
-            sessionId = UUID.randomUUID().toString(),
-        )
+        viewModelScope.launch {
+            val passiveInterval = settings.passiveInterval.flow
+            val iperfInterval = settings.iperfInterval.flow
+
+            collector.start(
+                tm = tm,
+                context = context,
+                passiveIntervalMs = passiveInterval,
+                iperfIntervalMs = iperfInterval,
+                sessionId = UUID.randomUUID().toString(),
+            )
+            isCollecting = true
+        }
     }
 
     fun stopCollection() {
         collector.stop()
-    }
-
-    private fun sendToServer(request: MeasurementRequest) {
-        viewModelScope.launch {
-            client
-                ?.sendFullUpdate(request)
-                ?.onSuccess {
-                    lastStatus = "Last send: Success (${LocalTime.now()})"
-                }?.onFailure {
-                    lastStatus = "Error: ${it.localizedMessage}"
-                    println("Network Error: ${it.message}")
-                }
-                ?: run {
-                    lastStatus = "Error: NetworkClient not initialized"
-                    println("Network Error: client is null")
-                }
-        }
+        isCollecting = false
     }
 
     val iperfCommand = combine(
