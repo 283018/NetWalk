@@ -62,7 +62,7 @@ data class MeasurementItem(
         measuredAt: String,
         system: SystemData,
         iperf: IperfParsed?,
-        iperfRaw: String?,
+        iperfRaw: String? = null,
     ) : this(
         session_id = sessionId,
         android_id = system.android_id,
@@ -81,7 +81,6 @@ data class MeasurementItem(
         bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
         battery_level = system.battery_level,
         battery_temp = system.battery_temp,
-        // os_version
         throughput_mbps = iperf?.throughputMbps,
         test_start_time = iperf?.startTime,
         test_end_time = if (iperf != null) iperf.startTime else null,
@@ -91,7 +90,7 @@ data class MeasurementItem(
         host_cpu = iperf?.hostCpuTotal,
         remote_cpu = iperf?.remoteCpuTotal,
         retransmits = iperf?.retransmits,
-        iperf_json = iperfRaw,
+        iperf_json = iperfRaw, // optional, normally empty
     )
 }
 
@@ -146,7 +145,7 @@ fun NetworkInfoData.toMeasurementsRequest(
     latitude: Double?,
     longitude: Double?,
     systemData: SystemData,
-    iperfRaw: String? = null,
+    iperfRaw: String?,
 ): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
@@ -163,7 +162,7 @@ fun NetworkInfoData.toMeasurementsRequest(
         measuredAt = Instant.now().toString(),
         system = systemData,
         iperf = iperfParsed,
-        iperfRaw = iperfRaw, // TODO: remove debug
+        // iperfRaw = iperfRaw, // debug leftover
     )
 
     return MeasurementRequest(measurements = listOf(item))
