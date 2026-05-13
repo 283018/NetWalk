@@ -52,6 +52,9 @@ class NetworkViewModel(
     var isCollecting by mutableStateOf(false)
         private set
 
+    private var sessionId: String = "" // only passive collection for ui displaying
+    private var passiveJobStarted = false
+
     // na razie jest host dostosowany do android emulator któty jest dostępny razem z android sdk
     private var client: NetworkClient? = null
     private var currentServerUrl: String? = null
@@ -171,24 +174,30 @@ class NetworkViewModel(
         }
     }
 
+    fun startPassiveCollection(
+        tm: TelephonyManager,
+        context: Context,
+    ) {
+        if (passiveJobStarted) return
+        passiveJobStarted = true
+
+        collector.start(
+            tm = tm,
+            context = context,
+            passiveIntervalMs = settings.passiveInterval.flow,
+            iperfIntervalMs = settings.iperfInterval.flow,
+            isCollectionEnabled = { isCollecting },
+            getSessionId = { sessionId },
+        )
+    }
+
     @SuppressLint("MissingPermission")
     fun startCollection(
         tm: TelephonyManager,
         context: Context,
     ) {
-        if (isCollecting) return
-
-        viewModelScope.launch {
-            val passiveInterval = settings.passiveInterval.flow
-            val iperfInterval = settings.iperfInterval.flow
-
-            collector.start(
-                tm = tm,
-                context = context,
-                passiveIntervalMs = passiveInterval,
-                iperfIntervalMs = iperfInterval,
-                sessionId = UUID.randomUUID().toString(),
-            )
+        if (!isCollecting) {
+            sessionId = UUID.randomUUID().toString()
             isCollecting = true
         }
     }

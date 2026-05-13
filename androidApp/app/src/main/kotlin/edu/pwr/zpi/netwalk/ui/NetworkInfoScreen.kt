@@ -81,6 +81,10 @@ fun NetworkInfoScreen(
             hasPermission = results.values.all { it }
         }
 
+    LaunchedEffect(Unit) {
+        viewModel.startPassiveCollection(tm, context)
+    }
+
     // jednoktotne rządanie pozwoleń
     LaunchedEffect(Unit) {
         if (!hasPermission) {

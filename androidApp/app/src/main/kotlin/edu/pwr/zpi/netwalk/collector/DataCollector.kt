@@ -36,7 +36,8 @@ class DataCollector(
         context: Context,
         passiveIntervalMs: Flow<Long>,
         iperfIntervalMs: Flow<Long>,
-        sessionId: String,
+        isCollectionEnabled: () -> Boolean,
+        getSessionId: () -> String,
     ) {
         if (job?.isActive == true) return
 
@@ -46,39 +47,41 @@ class DataCollector(
                 val currentIperfInterval = iperfIntervalMs.first()
 
                 if (NetworkInfoFetcher.hasRequiredPermissions(context)) {
-                    val now = System.currentTimeMillis()
-                    val shouldRunIperf = now - lastIperfTime > currentIperfInterval
-
                     val networkData = NetworkInfoFetcher.fetchNetworkInfo(tm, context)
                     val locationData = getCurrentLocation(context)
                     val systemData = SystemInfoFetcher.fetchFullSystemInfo(context)
 
                     onPassiveDataUpdate(networkData, locationData, systemData)
 
-                    val iperfResult = if (shouldRunIperf) {
-                        lastIperfTime = now
-                        try {
-                            withContext(Dispatchers.IO) {
-                                withTimeoutOrNull(6000) {
-                                    IperfRunner.runIperfOnce(getIperfCommand())
+                    if (isCollectionEnabled()) {
+                        val now = System.currentTimeMillis()
+                        val shouldRunIperf = now - lastIperfTime > currentIperfInterval
+
+                        val iperfResult = if (shouldRunIperf) {
+                            lastIperfTime = now
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    withTimeoutOrNull(6000) {
+                                        IperfRunner.runIperfOnce(getIperfCommand())
+                                    }
                                 }
+                            } catch (e: Exception) {
+                                null
                             }
-                        } catch (e: Exception) {
+                        } else {
                             null
                         }
-                    } else {
-                        null
+
+                        val request = networkData.toMeasurementsRequest(
+                            sessionId = getSessionId(),
+                            latitude = locationData.first,
+                            longitude = locationData.second,
+                            systemData = systemData,
+                            iperfRaw = iperfResult,
+                        )
+
+                        sendRequest(request)
                     }
-
-                    val request = networkData.toMeasurementsRequest(
-                        sessionId = sessionId,
-                        latitude = locationData.first,
-                        longitude = locationData.second,
-                        systemData = systemData,
-                        iperfRaw = iperfResult,
-                    )
-
-                    sendRequest(request)
                 } else {
                     onStatusUpdate("Permissions missing - cannot fetch data.")
                 }
