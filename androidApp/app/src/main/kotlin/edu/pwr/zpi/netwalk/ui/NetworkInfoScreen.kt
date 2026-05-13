@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -88,11 +89,11 @@ fun NetworkInfoScreen(
     }
 
     // LaunchedEffect potrzebny zamiast SideEffect - SideEffect wywołuje się po każdej rekompozycji
-    LaunchedEffect(hasPermission) {
-        if (hasPermission) {
-            viewModel.startCollection(tm, context)
-        }
-    }
+    // LaunchedEffect(hasPermission) {
+    //     if (hasPermission) {
+    //         viewModel.startCollection(tm, context)
+    //     }
+    // }
 
     // Główny ekran
     Column(modifier = Modifier.fillMaxSize().background(BackgroundColor)) {
@@ -126,6 +127,28 @@ fun NetworkInfoScreen(
         ) {
             OutlinedButton(onClick = onNavigateToIperf) {
                 Text("iPerf")
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { viewModel.startCollection(tm, context) },
+                enabled = !viewModel.isCollecting,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Start")
+            }
+            Button(
+                onClick = { viewModel.stopCollection() },
+                enabled = viewModel.isCollecting,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Stop")
             }
         }
 
