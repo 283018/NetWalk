@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.time.LocalTime
@@ -75,6 +77,8 @@ class NetworkViewModel(
     fun requestIperfNow() {
         forceIperfNow = true
     }
+
+    private val flushMutex = Mutex()
 
     // exposing specific settings in viewModel as flows
     // I know its ugly, but I dint know it will turn out like this :c
@@ -188,6 +192,19 @@ class NetworkViewModel(
             } else {
                 queuedMeasurements.addAll(request.measurements)
                 lastStatus = "Queued: ${queuedMeasurements.size} measurements"
+
+                // immediate send then queue exceed some size
+                val threshold = settings.maxQueueSize.flow.first()
+                if (queuedMeasurements.size >= threshold) {
+                    val batchList = queuedMeasurements.toList()
+                    queuedMeasurements.clear()
+                    viewModelScope.launch {
+                        flushMutex.withLock {
+                            val batchRequest = MeasurementRequest(measurements = batchList)
+                            sendGzippedBatch(batchRequest)
+                        }
+                    }
+                }
             }
         },
         shouldForceIperf = { forceIperfNow },

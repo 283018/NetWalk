@@ -51,4 +51,6 @@ class SettingsRepository(
     val iperfInterval = PreferenceItem(longPreferencesKey("iperf_interval"), 180_000L)
 
     val sendImmediately = PreferenceItem(booleanPreferencesKey("send_immediately"), false)
+
+    val maxQueueSize = PreferenceItem(longPreferencesKey("max_queue_size"), 100L)
 }
