@@ -64,7 +64,7 @@ data class MeasurementItem(
         networkType: String,
         servingNr: NrNetworkInfo?,
         servingLte: LteNetworkInfo?,
-        measuredAt: String,
+        measuredAt: Long,
         system: SystemData,
         iperf: IperfParsed?,
         iperfRaw: String? = null,
@@ -72,7 +72,9 @@ data class MeasurementItem(
         session_id = sessionId,
         android_id = system.android_id,
         cid = servingNr?.cid ?: servingLte?.cid,
-        measured_at = measuredAt,
+        measured_at = java.time.Instant
+            .ofEpochMilli(measuredAt)
+            .toString(),
         latitude = lat,
         longitude = lon,
         rsrp = servingNr?.ssRsrp ?: servingLte?.rsrp,
@@ -167,6 +169,7 @@ fun NetworkInfoData.toMeasurementsRequest(
     longitude: Double?,
     systemData: SystemData,
     iperfRaw: String?,
+    measuredAtNow: Long? = null,
 ): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
@@ -180,7 +183,7 @@ fun NetworkInfoData.toMeasurementsRequest(
         networkType = this.networkType,
         servingNr = servingNr,
         servingLte = servingLte,
-        measuredAt = Instant.now().toString(),
+        measuredAt = measuredAtNow ?: System.currentTimeMillis(),
         system = systemData,
         iperf = iperfParsed,
         // iperfRaw = iperfRaw, // debug leftover

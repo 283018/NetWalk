@@ -90,6 +90,7 @@ class DataCollector(
                             longitude = locationData.second,
                             systemData = systemData,
                             iperfRaw = iperfResult,
+                            measuredAtNow = now,
                         )
 
                         sendRequest(request)
