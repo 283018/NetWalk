@@ -10,6 +10,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import edu.pwr.zpi.netwalk.collector.DataCollector
+import edu.pwr.zpi.netwalk.fetcher.MeasurementItem
+import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.iperf.IperfCallback
 import edu.pwr.zpi.netwalk.iperf.IperfRunner
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -37,6 +40,7 @@ data class NetworkSettingsState(
     val iperfPort: String,
     val iperfTime: String,
     val iperfParallel: String,
+    val sendImmediately: Boolean,
 )
 
 class NetworkViewModel(
@@ -65,15 +69,26 @@ class NetworkViewModel(
     val iperfLogs = mutableStateListOf<String>()
     private var iperfJob: Job? = null
 
+    private val queuedMeasurements = mutableListOf<MeasurementItem>()
+
     // exposing specific settings in viewModel as flows
+    // I know its ugly, but I dint know it will turn out like this :c
     val uiSettingsState: StateFlow<NetworkSettingsState> = combine(
         settings.serverUrl.flow,
         settings.iperfIp.flow,
         settings.iperfPort.flow,
         settings.iperfTime.flow,
         settings.iperfParallel.flow,
-    ) { url, ip, port, time, parallel ->
-        NetworkSettingsState(url, ip, port, time, parallel)
+        settings.sendImmediately.flow,
+    ) { values: Array<Any?> ->
+        NetworkSettingsState(
+            serverUrl = values[0] as String,
+            iperfIp = values[1] as String,
+            iperfPort = values[2] as String,
+            iperfTime = values[3] as String,
+            iperfParallel = values[4] as String,
+            sendImmediately = values[5] as Boolean,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -83,6 +98,7 @@ class NetworkViewModel(
             settings.iperfPort.defaultValue,
             settings.iperfTime.defaultValue,
             settings.iperfParallel.defaultValue,
+            settings.sendImmediately.defaultValue,
         ),
     )
 
@@ -93,6 +109,7 @@ class NetworkViewModel(
             settings.iperfPort.update(state.iperfPort)
             settings.iperfTime.update(state.iperfTime)
             settings.iperfParallel.update(state.iperfParallel)
+            settings.sendImmediately.update(state.sendImmediately)
         }
     }
 
@@ -102,7 +119,22 @@ class NetworkViewModel(
         settings.iperfPort.defaultValue,
         settings.iperfTime.defaultValue,
         settings.iperfParallel.defaultValue,
+        settings.sendImmediately.defaultValue,
     )
+
+    private suspend fun sendMeasurementRequest(request: MeasurementRequest) {
+        client
+            ?.sendFullUpdate(request)
+            ?.onSuccess {
+                lastStatus = "Last send: Success (${LocalTime.now()})"
+            }?.onFailure {
+                lastStatus = "Error: ${it.localizedMessage}"
+                println("Network Error: ${it.message}")
+            } ?: run {
+            lastStatus = "Error: NetworkClient not initialized"
+            println("Network Error: client is null")
+        }
+    }
 
     private val collector = DataCollector(
         scope = viewModelScope,
@@ -114,18 +146,11 @@ class NetworkViewModel(
             uiStateSystem = system
         },
         sendRequest = { request ->
-            viewModelScope.launch {
-                client
-                    ?.sendFullUpdate(request)
-                    ?.onSuccess {
-                        lastStatus = "Last send: Success (${LocalTime.now()})"
-                    }?.onFailure {
-                        lastStatus = "Error: ${it.localizedMessage}"
-                        println("Network Error: ${it.message}")
-                    } ?: run {
-                    lastStatus = "Error: NetworkClient not initialized"
-                    println("Network Error: client is null")
-                }
+            if (settings.sendImmediately.flow.first()) {
+                sendMeasurementRequest(request)
+            } else {
+                queuedMeasurements.addAll(request.measurements)
+                lastStatus = "Queued: ${queuedMeasurements.size} measurements"
             }
         },
     )
@@ -212,12 +237,22 @@ class NetworkViewModel(
         if (!isCollecting) {
             sessionId = UUID.randomUUID().toString()
             isCollecting = true
+            queuedMeasurements.clear() // just to be sure
         }
     }
 
     fun stopCollection() {
-        // collector.stop()
-        isCollecting = false
+        if (isCollecting) {
+            isCollecting = false
+            if (queuedMeasurements.isNotEmpty()) {
+                viewModelScope.launch {
+                    val batchRequest = MeasurementRequest(measurements = queuedMeasurements.toList())
+                    queuedMeasurements.clear()
+                    lastStatus = "Sending batch of ${batchRequest.measurements.size} measurements"
+                    sendMeasurementRequest(batchRequest)
+                }
+            }
+        }
     }
 
     val iperfCommand = combine(

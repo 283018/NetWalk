@@ -2,6 +2,7 @@ package edu.pwr.zpi.netwalk.settings
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -48,4 +49,6 @@ class SettingsRepository(
 
     // for now every 3 minutes, maybe will have to increase later
     val iperfInterval = PreferenceItem(longPreferencesKey("iperf_interval"), 180_000L)
+
+    val sendImmediately = PreferenceItem(booleanPreferencesKey("send_immediately"), false)
 }

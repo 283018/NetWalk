@@ -2,12 +2,14 @@ package edu.pwr.zpi.netwalk.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -100,6 +102,23 @@ fun SettingsScreen(
             onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
             placeholder = viewModel.defaults.iperfParallel,
         )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = editableSettings.sendImmediately,
+                onCheckedChange = { checked ->
+                    editableSettings = editableSettings.copy(sendImmediately = checked)
+                },
+            )
+            Text(
+                text = "Send immediately",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
 
         Button(
             onClick = {

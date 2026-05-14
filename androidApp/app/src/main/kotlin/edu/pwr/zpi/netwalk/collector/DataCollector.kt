@@ -26,7 +26,7 @@ class DataCollector(
     private val getIperfCommand: () -> Array<String>,
     private val onStatusUpdate: (String) -> Unit,
     private val onPassiveDataUpdate: (NetworkInfoData?, Pair<Double?, Double?>, SystemData?) -> Unit,
-    private val sendRequest: (MeasurementRequest) -> Unit,
+    private val sendRequest: suspend (MeasurementRequest) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
