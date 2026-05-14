@@ -29,8 +29,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import java.io.ByteArrayOutputStream
 import java.time.LocalTime
 import java.util.UUID
+import java.util.zip.GZIPOutputStream
 import kotlin.Double
 import kotlin.Pair
 
@@ -129,10 +132,28 @@ class NetworkViewModel(
                 lastStatus = "Last send: Success (${LocalTime.now()})"
             }?.onFailure {
                 lastStatus = "Error: ${it.localizedMessage}"
-                println("Network Error: ${it.message}")
             } ?: run {
             lastStatus = "Error: NetworkClient not initialized"
-            println("Network Error: client is null")
+        }
+    }
+
+    private suspend fun sendGzippedBatch(batchRequest: MeasurementRequest) {
+        val jsonBytes = Json
+            .encodeToString(MeasurementRequest.serializer(), batchRequest)
+            .toByteArray(Charsets.UTF_8)
+        val gzippedBytes = ByteArrayOutputStream().use { bos ->
+            GZIPOutputStream(bos).use { gzip -> gzip.write(jsonBytes) }
+            bos.toByteArray()
+        }
+
+        client
+            ?.sendGzippedUpdate(gzippedBytes)
+            ?.onSuccess {
+                lastStatus = "Batch sent (compressed) successfully (${LocalTime.now()})"
+            }?.onFailure {
+                lastStatus = "Batch error: ${it.localizedMessage}"
+            } ?: run {
+            lastStatus = "Error: NetworkClient not initialized"
         }
     }
 
@@ -249,7 +270,9 @@ class NetworkViewModel(
                     val batchRequest = MeasurementRequest(measurements = queuedMeasurements.toList())
                     queuedMeasurements.clear()
                     lastStatus = "Sending batch of ${batchRequest.measurements.size} measurements"
-                    sendMeasurementRequest(batchRequest)
+
+                    sendGzippedBatch(batchRequest)
+                    // sendMeasurementRequest(batchRequest)
                 }
             }
         }
