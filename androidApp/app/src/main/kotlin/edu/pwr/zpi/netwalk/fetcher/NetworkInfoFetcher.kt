@@ -3,7 +3,6 @@ package edu.pwr.zpi.netwalk.fetcher
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import android.telephony.CellIdentityNr
 import android.telephony.CellInfo
 import android.telephony.CellInfoLte
@@ -42,7 +41,7 @@ data class MeasurementItem(
     val bandwidth: Int?,
     val battery_level: Int? = null,
     val battery_temp: Double? = null,
-    val os_version: String? = "Android ${Build.VERSION.RELEASE}",
+    val os_version: String? = null,
     val throughput_mbps: Double? = null,
     val latency_ms: Double? = null,
     val jitter_ms: Double? = null,
@@ -88,6 +87,7 @@ data class MeasurementItem(
         bandwidth = servingNr?.bandwidth ?: servingLte?.bandwidth,
         battery_level = system.battery_level,
         battery_temp = system.battery_temp,
+        os_version = system.os_version,
         throughput_mbps = iperf?.throughputMbps,
         latency_ms = iperf?.meanRtt,
         jitter_ms = if (iperf?.maxRtt != null && iperf.minRtt != null) {
