@@ -19,6 +19,8 @@ import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.coroutines.resume
 
 @Serializable
@@ -46,7 +48,7 @@ data class MeasurementItem(
     val jitter_ms: Double? = null,
     val cpu_utilization: Double? = null,
     val test_start_time: String? = null,
-    val test_end_time: String? = null,
+    val test_duration: Double? = null,
     val mean_rtt: Double? = null,
     val min_rtt: Double? = null,
     val max_rtt: Double? = null,
@@ -91,8 +93,8 @@ data class MeasurementItem(
         } else {
             null
         },
-        test_start_time = iperf?.startTime,
-        test_end_time = if (iperf != null) iperf.startTime else null,
+        test_start_time = iperf?.startTime?.let { convertIperfTimeToIso(it) },
+        test_duration = iperf?.testDuration,
         mean_rtt = iperf?.meanRtt,
         min_rtt = iperf?.minRtt,
         max_rtt = iperf?.maxRtt,
@@ -101,6 +103,16 @@ data class MeasurementItem(
         retransmits = iperf?.retransmits,
         iperf_json = iperfRaw, // optional, normally empty
     )
+
+    companion object {
+        private fun convertIperfTimeToIso(iperfTime: String): String? =
+            try {
+                val parsed = ZonedDateTime.parse(iperfTime, DateTimeFormatter.RFC_1123_DATE_TIME)
+                parsed.toInstant().toString()
+            } catch (e: Exception) {
+                null
+            }
+    }
 }
 
 @Serializable
