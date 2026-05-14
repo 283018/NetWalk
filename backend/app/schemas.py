@@ -14,8 +14,8 @@ LON_RANGE = 180
 
 class MeasurementBase(BaseModel):
     session_id: UUID
-    imsi: str
-    imei: str | None = None
+    android_id: str
+    cid: int | None
     measured_at: datetime
     rsrp: int | None = None
     rsrq: int | None = None
@@ -23,39 +23,61 @@ class MeasurementBase(BaseModel):
     network_type: str | None = None
     cell_id: str | None = None
     tac: int | None = None
+    radio_frequency: int | None = None
     band: int | None = None
+    bandwidth: int | None = None
     battery_level: int | None = None
-    processor_temp: float | None = None
+    battery_temp: float | None = None
     os_version: str | None = None
     throughput_mbps: float | None = None
+    latency_ms: float | None = None
+    jitter_ms: float | None = None
     test_start_time: datetime | None = None
-    test_end_time: datetime | None = None
+    test_duration: float | None = None
+    mean_rtt: float | None = None
+    min_rtt: float | None = None
+    max_rtt: float | None = None
+    host_cpu: float | None = None
+    remote_cpu: float | None = None
+    retransmits: float | None = None
 
 
 class MeasurementCreate(MeasurementBase):
     """
     JSON STRUCTURE FOR MOBILE APP REQUEST:
+    ``` json
     {
-        "session_id": "550e8400-e29b-41d4-a716-446655440000",
-        "imsi": "310150123456789",
-        "imei": "123456789012345",
-        "measured_at": "2026-04-19T11:54:00Z",
-        "latitude": 52.2297,
-        "longitude": 21.0122,
-        "rsrp": -75,
-        "rsrq": -10,
-        "sinr": 15,
-        "network_type": "LTE",
-        "cell_id": "12345678",
-        "tac": 12345,
-        "band": 3,
-        "battery_level": 85,
-        "processor_temp": 45.2,
-        "os_version": "Android 13",
-        "throughput_mbps": 120.5,
-        "test_start_time": "2026-04-19T11:53:00Z",
-        "test_end_time": "2026-04-19T11:54:00Z"
+        "session_id": "620363e2-f0ca-4c14-be20-3f7ff6967527",
+        "android_id": "d01bb08aa9bdc9a5",
+        "cid": 47108,
+        "measured_at": "2026-05-14T03:37:24.682Z",
+        "latitude": 37.4219983,
+        "longitude": -122.084,
+        "rsrp": -44,
+        "rsrq": -3,
+        "sinr": 3,
+        "network_type": "10",
+        "tac": 8514,
+        "cell_id": "0",
+        "radio_frequency": 7,
+        "band": 1,
+        "bandwidth": null,
+        "battery_level": 47,
+        "battery_temp": 25.0,
+        "os_version": "Android 14"
+        "throughput_mbps": 998.66,
+        "latency_ms": 661.0,
+        "jitter_ms": 214.0,
+        "test_start_time": "2026-05-14T03:37:24Z",
+        "test_duration": 10.25,
+        "mean_rtt": 661.0,
+        "min_rtt": 537.0,
+        "max_rtt": 751.0,
+        "host_cpu": 17.1,
+        "remote_cpu": 114.6,
+        "retransmits": 0
     }
+    ```
     """
 
     latitude: float | None = Field(default=None, exclude=True)
@@ -90,28 +112,40 @@ class MeasurementCreate(MeasurementBase):
 class MeasurementResponse(MeasurementBase):
     """
     JSON STRUCTURE FOR FRONTEND RESPONSE:
+    ``` json
     {
         "id": 12345,
-        "session_id": "550e8400-e29b-41d4-a716-446655440000",
-        "imsi": "310150123456789",
-        "imei": "123456789012345",
-        "measured_at": "2026-04-19T11:54:00Z",
-        "latitude": 52.2297,
-        "longitude": 21.0122,
-        "rsrp": -75,
-        "rsrq": -10,
-        "sinr": 15,
-        "network_type": "LTE",
-        "cell_id": "12345678",
-        "tac": 12345,
-        "band": 3,
-        "battery_level": 85,
-        "processor_temp": 45.2,
-        "os_version": "Android 13",
-        "throughput_mbps": 120.5,
-        "test_start_time": "2026-04-19T11:53:00Z",
-        "test_end_time": "2026-04-19T11:54:00Z"
+        "session_id": "620363e2-f0ca-4c14-be20-3f7ff6967527",
+        "android_id": "d01bb08aa9bdc9a5",
+        "cid": 47108,
+        "measured_at": "2026-05-14T03:37:24.682Z",
+        "latitude": 37.4219983,
+        "longitude": -122.084,
+        "rsrp": -44,
+        "rsrq": -3,
+        "sinr": 3,
+        "network_type": "10",
+        "tac": 8514,
+        "cell_id": "0",
+        "radio_frequency": 7,
+        "band": 1,
+        "bandwidth": null,
+        "battery_level": 47,
+        "battery_temp": 25.0,
+        "os_version": "Android 14"
+        "throughput_mbps": 998.66,
+        "latency_ms": 661.0,
+        "jitter_ms": 214.0,
+        "test_start_time": "2026-05-14T03:37:24Z",
+        "test_duration": 10.25,
+        "mean_rtt": 661.0,
+        "min_rtt": 537.0,
+        "max_rtt": 751.0,
+        "host_cpu": 17.1,
+        "remote_cpu": 114.6,
+        "retransmits": 0
     }
+    ```
     """
 
     id: int
