@@ -1,17 +1,16 @@
-from pathlib import Path
+import os
 
 import pytest
+from app.database import Base, get_db
+from app.main import app
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.database import Base, get_db
-from app.main import app
-
-if Path("/.dockerenv").exists():
-    TEST_DATABASE_URL = "postgresql://netwalk:password@timescaledb:5432/netwalk_db"
-else:
-    TEST_DATABASE_URL = "postgresql://netwalk:password@localhost:5433/netwalk_db"
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+if not TEST_DATABASE_URL:
+    msg = "TEST_DATABASE_URL nie jest ustawiona. Uruchom: docker compose --profile test run --rm tests"
+    raise RuntimeError(msg)
 
 
 @pytest.fixture(scope="session")
