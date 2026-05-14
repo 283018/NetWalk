@@ -55,6 +55,7 @@ class DataCollector(
 
                     if (isCollectionEnabled()) {
                         val now = System.currentTimeMillis()
+                        // TODO: add check for busy iperf server OR server-side connection manager / port rotation
                         val shouldRunIperf = now - lastIperfTime > currentIperfInterval
 
                         val iperfResult = if (shouldRunIperf) {
