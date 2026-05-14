@@ -65,8 +65,7 @@ just install-hooks
 just backend makeenv      # (first-time only) copy .env.example -> .env
 just backend install      # (first-time only) uv sync --all-extras
 just backend db-up        # start database container
-just backend serve-host   # run FastAPI locally with hot-reload
-```
+just backend serve-docker # run FastAPI in Docker (only way)
 
 ### Frontend
 

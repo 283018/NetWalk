@@ -52,11 +52,6 @@ db-shell:
 # SERVER
 # ======
 
-# odpala server bezpośrednio
-serve-host:
-    @echo "Starting server on host"
-    uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
 # odpala server w kontenerzr
 serve-docker:
     @echo "Starting server in contener."
