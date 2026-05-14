@@ -31,6 +31,8 @@ class DataCollector(
     private var job: Job? = null
     private var lastIperfTime = 0L
 
+    private var lastSessionId: String? = null
+
     fun start(
         tm: TelephonyManager,
         context: Context,
@@ -56,6 +58,13 @@ class DataCollector(
                     onPassiveDataUpdate(networkData, locationData, systemData)
 
                     if (isCollectionEnabled()) {
+                        // re-sets iperf timer in new session
+                        val currentSId = getSessionId()
+                        if (currentSId.isNotEmpty() && currentSId != lastSessionId) {
+                            lastIperfTime = 0
+                            lastSessionId = currentSId
+                        }
+
                         val now = System.currentTimeMillis()
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
                         val shouldRunIperf = now - lastIperfTime > currentIperfInterval

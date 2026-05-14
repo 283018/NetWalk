@@ -216,7 +216,7 @@ class NetworkViewModel(
     }
 
     fun stopCollection() {
-        collector.stop()
+        // collector.stop()
         isCollecting = false
     }
 
