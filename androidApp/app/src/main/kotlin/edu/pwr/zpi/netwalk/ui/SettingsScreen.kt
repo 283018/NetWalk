@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.URL
 
@@ -102,8 +101,6 @@ fun SettingsScreen(
                     viewModel.saveAllSettings(editableSettings)
 
                     saveStatus = "Saved"
-                    delay(1000)
-                    onNavigateBack()
                 }
             },
             modifier = Modifier.align(Alignment.End),
