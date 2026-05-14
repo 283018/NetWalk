@@ -5,6 +5,8 @@ import android.telephony.TelephonyManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -30,14 +32,19 @@ class MainActivity : ComponentActivity() {
         settingsRepository = SettingsRepository(this)
 
         setContent {
+            val viewModel: NetworkViewModel = _viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                        NetworkViewModel(settingsRepository) as T
+                },
+            )
+
             MaterialTheme {
                 val navController = rememberNavController()
 
                 NavHost(navController = navController, startDestination = "network") {
                     composable("network") {
-                        val viewModel: NetworkViewModel = _viewModel {
-                            NetworkViewModel(settingsRepository)
-                        }
                         NetworkInfoScreen(
                             tm = tm,
                             viewModel = viewModel,
@@ -46,18 +53,12 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("settings") {
-                        val viewModel: NetworkViewModel = _viewModel {
-                            NetworkViewModel(settingsRepository)
-                        }
                         SettingsScreen(
                             viewModel = viewModel,
                             onNavigateBack = { navController.popBackStack() },
                         )
                     }
                     composable("iperf") {
-                        val viewModel: NetworkViewModel = _viewModel {
-                            NetworkViewModel(settingsRepository)
-                        }
                         IperfLogScreen(
                             viewModel = viewModel,
                             onNavigateBack = { navController.popBackStack() },
