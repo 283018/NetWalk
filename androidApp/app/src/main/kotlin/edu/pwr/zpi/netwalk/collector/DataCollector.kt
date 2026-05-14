@@ -27,6 +27,8 @@ class DataCollector(
     private val onStatusUpdate: (String) -> Unit,
     private val onPassiveDataUpdate: (NetworkInfoData?, Pair<Double?, Double?>, SystemData?) -> Unit,
     private val sendRequest: suspend (MeasurementRequest) -> Unit,
+    private val shouldForceIperf: () -> Boolean,
+    private val onForceIperfHandled: () -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
@@ -67,7 +69,12 @@ class DataCollector(
 
                         val now = System.currentTimeMillis()
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
-                        val shouldRunIperf = now - lastIperfTime > currentIperfInterval
+                        var shouldRunIperf = now - lastIperfTime > currentIperfInterval
+
+                        if (shouldForceIperf()) {
+                            shouldRunIperf = true
+                            onForceIperfHandled()
+                        }
 
                         val iperfResult = if (shouldRunIperf) {
                             lastIperfTime = now

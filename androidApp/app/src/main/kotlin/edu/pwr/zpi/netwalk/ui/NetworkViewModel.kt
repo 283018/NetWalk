@@ -58,6 +58,9 @@ class NetworkViewModel(
     var isCollecting by mutableStateOf(false)
         private set
 
+    var forceIperfNow by mutableStateOf(false)
+        private set
+
     private var sessionId: String = "" // only passive collection for ui displaying
     private var passiveJobStarted = false
 
@@ -68,6 +71,10 @@ class NetworkViewModel(
     val iperfLogEntries = mutableStateListOf<IperfLogEntry>()
 
     private val queuedMeasurements = mutableListOf<MeasurementItem>()
+
+    fun requestIperfNow() {
+        forceIperfNow = true
+    }
 
     // exposing specific settings in viewModel as flows
     // I know its ugly, but I dint know it will turn out like this :c
@@ -183,6 +190,8 @@ class NetworkViewModel(
                 lastStatus = "Queued: ${queuedMeasurements.size} measurements"
             }
         },
+        shouldForceIperf = { forceIperfNow },
+        onForceIperfHandled = { forceIperfNow = false },
     )
 
     init {
