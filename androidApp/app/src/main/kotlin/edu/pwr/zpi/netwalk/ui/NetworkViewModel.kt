@@ -216,8 +216,11 @@ class NetworkViewModel(
             add("iperf3")
             add("-c")
             add(ip)
-            add("-p")
-            add(port)
+
+            if (port.isNotBlank()) {
+                add("-p")
+                add(port)
+            }
 
             // split args string on whitespace and filters out empty string
             addAll(

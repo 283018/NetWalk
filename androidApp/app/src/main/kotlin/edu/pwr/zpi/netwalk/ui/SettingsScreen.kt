@@ -85,6 +85,7 @@ fun SettingsScreen(
             value = editableSettings.iperfPort,
             onValueChange = { editableSettings = editableSettings.copy(iperfPort = it) },
             placeholder = viewModel.defaults.iperfPort,
+            isValid = ::isValidPort,
         )
 
         SettingStringField(
@@ -181,4 +182,10 @@ private fun isValidIp(ip: String): Boolean {
     return match.groupValues.drop(1).all {
         it.toInt() in 0..255
     }
+}
+
+private fun isValidPort(port: String): Boolean {
+    if (port.isEmpty()) return true // allow empty port if using public iperf server
+    val portInt = port.toIntOrNull() ?: return false
+    return portInt in 1..65535
 }
