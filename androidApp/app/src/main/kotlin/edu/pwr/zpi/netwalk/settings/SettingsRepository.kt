@@ -41,7 +41,8 @@ class SettingsRepository(
     val serverUrl = PreferenceItem(stringPreferencesKey("server_url"), "http://10.0.2.2:8000")
     val iperfIp = PreferenceItem(stringPreferencesKey("iperf_ip"), "10.0.2.2")
     val iperfPort = PreferenceItem(stringPreferencesKey("iperf_port"), "5201")
-    val iperfArgs = PreferenceItem(stringPreferencesKey("iperf_args"), "-t 10 -P 5")
+    val iperfTime = PreferenceItem(stringPreferencesKey("iperf_time"), "10")
+    val iperfParallel = PreferenceItem(stringPreferencesKey("iperf_parallel"), "10")
 
     val passiveInterval = PreferenceItem(longPreferencesKey("passive_interval"), 3_000L)
 

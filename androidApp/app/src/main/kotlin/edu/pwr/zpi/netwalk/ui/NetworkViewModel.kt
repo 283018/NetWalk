@@ -33,7 +33,8 @@ data class NetworkSettingsState(
     val serverUrl: String,
     val iperfIp: String,
     val iperfPort: String,
-    val iperfArgs: String,
+    val iperfTime: String,
+    val iperfParallel: String,
 )
 
 class NetworkViewModel(
@@ -67,9 +68,10 @@ class NetworkViewModel(
         settings.serverUrl.flow,
         settings.iperfIp.flow,
         settings.iperfPort.flow,
-        settings.iperfArgs.flow,
-    ) { url, ip, port, args ->
-        NetworkSettingsState(url, ip, port, args)
+        settings.iperfTime.flow,
+        settings.iperfParallel.flow,
+    ) { url, ip, port, time, parallel ->
+        NetworkSettingsState(url, ip, port, time, parallel)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -77,7 +79,8 @@ class NetworkViewModel(
             settings.serverUrl.defaultValue,
             settings.iperfIp.defaultValue,
             settings.iperfPort.defaultValue,
-            settings.iperfArgs.defaultValue,
+            settings.iperfTime.defaultValue,
+            settings.iperfParallel.defaultValue,
         ),
     )
 
@@ -86,7 +89,8 @@ class NetworkViewModel(
             settings.serverUrl.update(state.serverUrl)
             settings.iperfIp.update(state.iperfIp)
             settings.iperfPort.update(state.iperfPort)
-            settings.iperfArgs.update(state.iperfArgs)
+            settings.iperfTime.update(state.iperfTime)
+            settings.iperfParallel.update(state.iperfParallel)
         }
     }
 
@@ -94,7 +98,8 @@ class NetworkViewModel(
         settings.serverUrl.defaultValue,
         settings.iperfIp.defaultValue,
         settings.iperfPort.defaultValue,
-        settings.iperfArgs.defaultValue,
+        settings.iperfTime.defaultValue,
+        settings.iperfParallel.defaultValue,
     )
 
     private val collector = DataCollector(
@@ -210,8 +215,9 @@ class NetworkViewModel(
     val iperfCommand = combine(
         settings.iperfIp.flow,
         settings.iperfPort.flow,
-        settings.iperfArgs.flow,
-    ) { ip, port, args ->
+        settings.iperfTime.flow,
+        settings.iperfParallel.flow,
+    ) { ip, port, time, parallel ->
         buildList {
             add("iperf3")
             add("-c")
@@ -222,13 +228,13 @@ class NetworkViewModel(
                 add(port)
             }
 
-            // split args string on whitespace and filters out empty string
-            addAll(
-                args
-                    .trim()
-                    .split("\\s+".toRegex())
-                    .filter { it.isNotBlank() },
-            )
+            add("-t")
+            add(time)
+
+            if (parallel.isNotBlank()) {
+                add("-P")
+                add(parallel)
+            }
 
             add("--json")
         }.toTypedArray()

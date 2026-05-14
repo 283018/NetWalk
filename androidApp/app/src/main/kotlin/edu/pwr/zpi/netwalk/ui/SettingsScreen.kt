@@ -89,10 +89,16 @@ fun SettingsScreen(
 
         // TODO: disable flag change support option in future
         SettingStringField(
-            label = "Iperf Arguments",
-            value = editableSettings.iperfArgs,
-            onValueChange = { editableSettings = editableSettings.copy(iperfArgs = it) },
-            placeholder = viewModel.defaults.iperfArgs,
+            label = "Iperf Length",
+            value = editableSettings.iperfTime,
+            onValueChange = { editableSettings = editableSettings.copy(iperfTime = it) },
+            placeholder = viewModel.defaults.iperfTime,
+        )
+        SettingStringField(
+            label = "Iperf Streams",
+            value = editableSettings.iperfParallel,
+            onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
+            placeholder = viewModel.defaults.iperfParallel,
         )
 
         Button(
