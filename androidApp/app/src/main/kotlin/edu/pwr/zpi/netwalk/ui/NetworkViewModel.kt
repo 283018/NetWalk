@@ -13,13 +13,10 @@ import edu.pwr.zpi.netwalk.collector.DataCollector
 import edu.pwr.zpi.netwalk.fetcher.MeasurementItem
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
-import edu.pwr.zpi.netwalk.iperf.IperfCallback
-import edu.pwr.zpi.netwalk.iperf.IperfRunner
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import edu.pwr.zpi.netwalk.ui.IperfLogEntry
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +24,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
@@ -69,8 +65,7 @@ class NetworkViewModel(
     private var client: NetworkClient? = null
     private var currentServerUrl: String? = null
 
-    val iperfLogs = mutableStateListOf<String>()
-    private var iperfJob: Job? = null
+    val iperfLogEntries = mutableStateListOf<IperfLogEntry>()
 
     private val queuedMeasurements = mutableListOf<MeasurementItem>()
 
@@ -167,6 +162,20 @@ class NetworkViewModel(
             uiStateSystem = system
         },
         sendRequest = { request ->
+
+            request.measurements.forEach { item ->
+                if (item.throughput_mbps != null || item.mean_rtt != null || item.retransmits != null) {
+                    iperfLogEntries.add(
+                        IperfLogEntry(
+                            timestamp = item.measured_at,
+                            throughputMbps = item.throughput_mbps,
+                            meanRtt = item.mean_rtt,
+                            retransmits = item.retransmits,
+                        ),
+                    )
+                }
+            }
+
             if (settings.sendImmediately.flow.first()) {
                 sendMeasurementRequest(request)
             } else {
@@ -184,44 +193,6 @@ class NetworkViewModel(
                     client = NetworkClient(url)
                     currentServerUrl = url
                     lastStatus = "Server URL updated: $url"
-                }
-            }
-        }
-    }
-
-    fun runIperfTest() {
-        if (iperfJob?.isActive == true) return
-        iperfLogs.clear()
-
-        val commandToRun = iperfCommand.value
-
-        iperfJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                IperfRunner.runIperfLive(
-                    commandToRun,
-                    object : IperfCallback {
-                        override fun onOutput(message: String) {
-                            viewModelScope.launch(Dispatchers.Main) {
-                                iperfLogs.add(message.trim())
-                            }
-                        }
-
-                        override fun onError(error: String) {
-                            viewModelScope.launch(Dispatchers.Main) {
-                                iperfLogs.add("Error: $error")
-                            }
-                        }
-
-                        override fun onComplete() {
-                            viewModelScope.launch(Dispatchers.Main) {
-                                iperfLogs.add("--- Test Complete ---")
-                            }
-                        }
-                    },
-                )
-            } catch (e: Exception) {
-                viewModelScope.launch(Dispatchers.Main) {
-                    iperfLogs.add("Native implementation failed: ${e.message}")
                 }
             }
         }
