@@ -36,6 +36,7 @@ class DataCollector(
         context: Context,
         passiveIntervalMs: Flow<Long>,
         iperfIntervalMs: Flow<Long>,
+        iperfTimeoutMs: Flow<Long>,
         isCollectionEnabled: () -> Boolean,
         getSessionId: () -> String,
     ) {
@@ -45,6 +46,7 @@ class DataCollector(
             while (isActive) {
                 val currentPassiveInterval = passiveIntervalMs.first()
                 val currentIperfInterval = iperfIntervalMs.first()
+                val currentTimout = iperfTimeoutMs.first()
 
                 if (NetworkInfoFetcher.hasRequiredPermissions(context)) {
                     val networkData = NetworkInfoFetcher.fetchNetworkInfo(tm, context)
@@ -62,7 +64,7 @@ class DataCollector(
                             lastIperfTime = now
                             try {
                                 withContext(Dispatchers.IO) {
-                                    withTimeoutOrNull(6000) {
+                                    withTimeoutOrNull(currentTimout) {
                                         IperfRunner.runIperfOnce(getIperfCommand())
                                     }
                                 }

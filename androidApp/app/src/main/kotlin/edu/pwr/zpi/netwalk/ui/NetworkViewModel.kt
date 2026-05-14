@@ -18,9 +18,11 @@ import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -186,11 +188,17 @@ class NetworkViewModel(
         if (passiveJobStarted) return
         passiveJobStarted = true
 
+        val iperfTimeoutMsFlow: Flow<Long> = settings.iperfTime.flow.map { timeStr ->
+            val testSeconds = timeStr.toDoubleOrNull() ?: 10.0
+            ((testSeconds + 5.0) * 1000).toLong()
+        }
+
         collector.start(
             tm = tm,
             context = context,
             passiveIntervalMs = settings.passiveInterval.flow,
             iperfIntervalMs = settings.iperfInterval.flow,
+            iperfTimeoutMs = iperfTimeoutMsFlow,
             isCollectionEnabled = { isCollecting },
             getSessionId = { sessionId },
         )
