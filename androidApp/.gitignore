@@ -34,6 +34,9 @@ local.properties
 *.rar
 !gradle/wrapper/gradle-wrapper.jar
 
+# cmake artifacts
+.cxx/
+
 # Built application files
 *.apk
 *.aar

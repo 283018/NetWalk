@@ -42,5 +42,15 @@ services:
       retries: 3
       start_period: 10s
 
+  iperf3:
+    image: networkstatic/iperf3
+    container_name: netwalk-iperf
+    # android możee ucinać połączenia na niestandartowych portach, więc reroutujemy do 443
+    ports:
+      - "443:5201/tcp"
+      - "443:5201/udp"
+    command: ["-s"]
+    restart: always
+
 volumes:
   db_data:

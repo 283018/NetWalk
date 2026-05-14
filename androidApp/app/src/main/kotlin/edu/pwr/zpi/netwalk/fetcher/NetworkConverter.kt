@@ -44,11 +44,62 @@ object NetworkConverter {
     }
 
     /**
-     TODO - finish 5G calculation
+
      Oblicza częstotliwości downlink i uplink 5G na podstawie NR-ARFCN i numeru pasma.
+     Na podstawie 3GPP.
      */
 
-    fun calculateNrMhz(nrarfcn: Int): Pair<Double, Double>? = null
+    fun calculateNrMhz(
+        nrarfcn: Int,
+        band: Int?,
+        duplexMode: String,
+    ): Pair<Double, Double>? {
+        val dlFreq = when {
+            nrarfcn in 0..599999 -> {
+                0.0 + 0.005 * nrarfcn
+            }
+
+            nrarfcn in 600000..2016666 -> {
+                3000.0 + 0.015 * (nrarfcn - 600000)
+            }
+
+            nrarfcn in 2016667..3279165 -> {
+                24250.0 + 0.060 * (nrarfcn - 2016667)
+            }
+
+            else -> {
+                return null
+            }
+        }
+
+        val ulFreq = if (duplexMode == "TDD") {
+            dlFreq
+        } else {
+            when (band) {
+                1 -> dlFreq - 190.0
+
+                2 -> dlFreq - 80.0
+
+                3 -> dlFreq - 95.0
+
+                5 -> dlFreq - 45.0
+
+                7 -> dlFreq - 120.0
+
+                8 -> dlFreq - 45.0
+
+                20 -> dlFreq + 41.0
+
+                28 -> dlFreq - 55.0
+
+                66 -> dlFreq - 400.0
+
+                // ul = dl freq jeżeli użyte pasmo jest inne
+                else -> dlFreq
+            }
+        }
+        return Pair(dlFreq, ulFreq)
+    }
 
     fun calculateNrBandwidth(bandwidths: IntArray?): Int? {
         if (bandwidths == null || bandwidths.isEmpty()) return null

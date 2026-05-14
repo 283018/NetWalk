@@ -10,6 +10,8 @@ material3 = "1.4.0"
 playServicesLocation = "21.3.0"
 navigationCompose = "2.9.8"
 datastore = "1.2.1"
+cmake = "3.22.1"
+ndk = "29.0.14206865" # latest stable version
 
 
 [libraries]

@@ -1,0 +1,3 @@
+[submodule "iperf_source"]
+	path = androidApp/app/src/main/cpp/iperf/third_party
+	url = https://github.com/esnet/iperf.git

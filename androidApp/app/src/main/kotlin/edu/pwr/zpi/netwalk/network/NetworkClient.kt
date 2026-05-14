@@ -43,4 +43,28 @@ class NetworkClient(
                 Result.failure(e)
             }
         }
+
+    suspend fun sendGzippedUpdate(gzippedBody: ByteArray): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URL("$baseUrl/measurements/batch")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Content-Encoding", "gzip")
+                    connectTimeout = 5000
+                }
+                connection.outputStream.use { it.write(gzippedBody) }
+
+                if (connection.responseCode in 200..299) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("HTTP ${connection.responseCode}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 }

@@ -13,10 +13,10 @@ class Measurement(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(UUID, nullable=False)
 
-    # id użytkownika
-    imsi = Column(String, nullable=False)
     # id urządzenia
-    imei = Column(String)
+    android_id = Column(String, nullable=False)
+
+    cid = Column(Integer)
 
     # czas
     measured_at = Column(TIMESTAMP(timezone=True), nullable=False)
@@ -40,16 +40,26 @@ class Measurement(Base):
     cell_id = Column(String)
     tac = Column(Integer)
     band = Column(Integer)
+    bandwidth = Column(Integer)
+    radio_frequency = Column(Integer)
 
     # parametry systemowe
     battery_level = Column(Integer)
-    processor_temp = Column(Float)
+    battery_temp = Column(Float)
     os_version = Column(String)
 
     # testy wydajności
     throughput_mbps = Column(Float)
     test_start_time = Column(TIMESTAMP(timezone=True))
-    test_end_time = Column(TIMESTAMP(timezone=True))
+    test_duration = Column(Float)
+    latency_ms = Column(Float)
+    jitter_ms = Column(Float)
+    mean_rtt = Column(Float)
+    min_rtt = Column(Float)
+    max_rtt = Column(Float)
+    host_cpu = Column(Float)
+    remote_cpu = Column(Float)
+    retransmits = Column(Integer)
 
     # indeksy do wydajności
     __table_args__ = (
