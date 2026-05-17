@@ -131,7 +131,7 @@ async def create_measurements_batch(request: Request, db: DbSession):
     batch_id = batch.measurements[0].session_id if batch.measurements else None
 
     if not batch.measurements:
-        return {"inserted": 0, "batch_id": batch_id}
+        raise HTTPException(status_code=400, detail="Brak pomiarów w żądaniu.")
 
     rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
 
