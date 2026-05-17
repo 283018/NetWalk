@@ -22,7 +22,6 @@ env/
 
 # docker specific
 uv.lock~
-tests
 .env
 .env.*
 .git
