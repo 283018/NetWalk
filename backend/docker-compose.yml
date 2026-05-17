@@ -49,8 +49,8 @@ services:
     container_name: netwalk-iperf
     # android możee ucinać połączenia na niestandartowych portach, więc reroutujemy do 443
     ports:
-      - "443:5201/tcp"
-      - "443:5201/udp"
+      - "5201:5201/tcp"
+      - "5201:5201/udp"
     command: ["-s"]
     restart: always
 
@@ -61,6 +61,10 @@ services:
     container_name: netwalk-tests
     environment:
       TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     depends_on:
       timescaledb:
         condition: service_healthy
