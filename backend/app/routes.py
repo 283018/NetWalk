@@ -1,13 +1,13 @@
 import gzip
 import json
+from datetime import datetime
 from typing import Annotated
 from uuid import uuid4
-from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy import func, extract
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from geoalchemy2 import functions as geo_func
+from sqlalchemy import extract, func
+from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.analytics import average_signal
@@ -16,10 +16,11 @@ from app.database import get_db
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
 
+
 def measurement_filters(
     query,
     session_id: str | None = None,
-    imsi: str | None = None,
+    android_id: str | None = None,
     network_type: str | None = None,
     cell_id: str | None = None,
     min_rsrp: int | None = None,
@@ -36,8 +37,8 @@ def measurement_filters(
 
     if session_id:
         query = query.filter(models.Measurement.session_id == session_id)
-    if imsi:
-        query = query.filter(models.Measurement.imsi == imsi)
+    if android_id:
+        query = query.filter(models.Measurement.android_id == android_id)
     if network_type:
         query = query.filter(models.Measurement.network_type == network_type)
     if cell_id:
@@ -58,15 +59,18 @@ def measurement_filters(
         query = query.filter(models.Measurement.measured_at <= end_date)
 
     # filtr przestrzenny - bounding box
-    if min_latitude is not None and max_latitude is not None and min_longitude is not None and max_longitude is not None:
+    if (
+        min_latitude is not None
+        and max_latitude is not None
+        and min_longitude is not None
+        and max_longitude is not None
+    ):
         query = query.filter(
             geo_func.ST_Within(
                 models.Measurement.location,
                 geo_func.ST_MakeEnvelope(
-                    min_longitude, min_latitude,
-                    max_longitude, max_latitude,
-                    4326
-                )
+                    min_longitude, min_latitude, max_longitude, max_latitude, 4326
+                ),
             )
         )
 
@@ -110,14 +114,17 @@ async def create_measurements_batch(request: Request, db: DbSession):
             payload_text = raw_body.decode("utf-8")
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}"
+            status_code=400,
+            detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}",
         ) from e
 
     try:
         payload = json.loads(payload_text)
         batch = schemas.MeasurementBatch(**payload)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="dane nie są poprawnym formatem JSON.") from None
+        raise HTTPException(
+            status_code=400, detail="dane nie są poprawnym formatem JSON."
+        ) from None
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Błąd Pydantic: {e!s}") from e
 
@@ -142,6 +149,7 @@ def start_session(db: DbSession):
     new_session_id = uuid4()
     return schemas.SessionResponse(session_id=new_session_id, started_at=datetime.utcnow())
 
+
 @router.post("/sessions/{session_id}/stop")
 def stop_session(session_id: str, db: DbSession):
     return {"status": "ok", "message": f"Session {session_id} stopped"}
@@ -150,28 +158,32 @@ def stop_session(session_id: str, db: DbSession):
 @router.get("/sessions")
 def get_sessions(db: DbSession):
 
-    sessions = db.query(
-        models.Measurement.session_id,
-        func.min(models.Measurement.measured_at).label('started_at'),
-        func.count(models.Measurement.id).label('measurement_count')
-    ).group_by(models.Measurement.session_id).order_by(
-        func.min(models.Measurement.measured_at).desc()
-    ).all()
+    sessions = (
+        db.query(
+            models.Measurement.session_id,
+            func.min(models.Measurement.measured_at).label("started_at"),
+            func.count(models.Measurement.id).label("measurement_count"),
+        )
+        .group_by(models.Measurement.session_id)
+        .order_by(func.min(models.Measurement.measured_at).desc())
+        .all()
+    )
 
     return [
         {
             "session_id": str(s.session_id),
             "started_at": s.started_at,
-            "measurement_count": s.measurement_count
+            "measurement_count": s.measurement_count,
         }
         for s in sessions
     ]
+
 
 @router.get("/measurements/filtered", response_model=list[schemas.MeasurementResponse])
 def get_measurements_filtered(
     db: DbSession,
     session_id: str | None = None,
-    imsi: str | None = None,
+    android_id: str | None = None,
     network_type: str | None = None,
     cell_id: str | None = None,
     min_rsrp: int | None = None,
@@ -184,13 +196,13 @@ def get_measurements_filtered(
     max_latitude: float | None = None,
     min_longitude: float | None = None,
     max_longitude: float | None = None,
-    limit: int = Query(default=100, le=1000)
+    limit: int = Query(default=100, le=1000),
 ):
     query = db.query(models.Measurement)
     query = measurement_filters(
         query,
         session_id=session_id,
-        imsi=imsi,
+        android_id=android_id,
         network_type=network_type,
         cell_id=cell_id,
         min_rsrp=min_rsrp,
@@ -233,16 +245,13 @@ def get_measurements_stats(
 
     stats = q.with_entities(
         func.count(func.distinct(models.Measurement.session_id)).label("unique_sessions"),
-        func.count(func.distinct(models.Measurement.imsi)).label("unique_devices"),
-
+        func.count(func.distinct(models.Measurement.android_id)).label("unique_devices"),
         func.avg(models.Measurement.rsrp).label("avg_rsrp"),
         func.min(models.Measurement.rsrp).label("min_rsrp"),
         func.max(models.Measurement.rsrp).label("max_rsrp"),
-
         func.avg(models.Measurement.sinr).label("avg_sinr"),
         func.min(models.Measurement.sinr).label("min_sinr"),
         func.max(models.Measurement.sinr).label("max_sinr"),
-
         func.avg(models.Measurement.throughput_mbps).label("avg_throughput"),
         func.max(models.Measurement.throughput_mbps).label("max_throughput"),
     ).first()
@@ -258,42 +267,48 @@ def get_measurements_stats(
     )
 
     network_dist = {
-        row[0]: row[1] for row in filtered_base.with_entities(
+        row[0]: row[1]
+        for row in filtered_base.with_entities(
             models.Measurement.network_type, func.count(models.Measurement.id)
-        ).group_by(models.Measurement.network_type).all() if row[0]
+        )
+        .group_by(models.Measurement.network_type)
+        .all()
+        if row[0]
     }
 
-
     band_dist = {
-        str(row[0]): row[1] for row in filtered_base.with_entities(
+        str(row[0]): row[1]
+        for row in filtered_base.with_entities(
             models.Measurement.band, func.count(models.Measurement.id)
-        ).group_by(models.Measurement.band).all() if row[0] is not None
+        )
+        .group_by(models.Measurement.band)
+        .all()
+        if row[0] is not None
     }
 
     hour_dist = {
-        int(row[0]): row[1] for row in filtered_base.with_entities(
-            extract('hour', models.Measurement.measured_at), func.count(models.Measurement.id)
-        ).group_by(extract('hour', models.Measurement.measured_at)).all() if row[0] is not None
+        int(row[0]): row[1]
+        for row in filtered_base.with_entities(
+            extract("hour", models.Measurement.measured_at), func.count(models.Measurement.id)
+        )
+        .group_by(extract("hour", models.Measurement.measured_at))
+        .all()
+        if row[0] is not None
     }
-
 
     return {
         "total_measurements": total,
         "unique_sessions": stats.unique_sessions or 0,
         "unique_devices": stats.unique_devices or 0,
-
         "avg_rsrp": float(stats.avg_rsrp) if stats.avg_rsrp is not None else None,
         "min_rsrp": stats.min_rsrp,
         "max_rsrp": stats.max_rsrp,
-
         "avg_sinr": float(stats.avg_sinr) if stats.avg_sinr is not None else None,
         "min_sinr": stats.min_sinr,
         "max_sinr": stats.max_sinr,
-
         "avg_throughput": float(stats.avg_throughput) if stats.avg_throughput is not None else None,
         "max_throughput": float(stats.max_throughput) if stats.max_throughput is not None else None,
-
         "network_distribution": network_dist,
         "band_distribution": band_dist,
-        "measurements_by_hour": hour_dist
+        "measurements_by_hour": hour_dist,
     }
