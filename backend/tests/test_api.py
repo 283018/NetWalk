@@ -13,7 +13,8 @@ class TestMeasurementsAPI:
             "measurements": [
                 {
                     "session_id": test_uuid,
-                    "imsi": "310150123456789",
+                    "android_id": "310150123456789",
+                    "cid": 47108,
                     "measured_at": "2026-04-27T10:00:00Z",
                     "latitude": 52.2297,
                     "longitude": 21.0122,
@@ -25,7 +26,8 @@ class TestMeasurementsAPI:
                 },
                 {
                     "session_id": test_uuid,
-                    "imsi": "310150123456789",
+                    "android_id": "310150123456789",
+                    "cid": 47108,
                     "measured_at": "2026-04-27T10:05:00Z",
                     "latitude": 52.2300,
                     "longitude": 21.0130,
@@ -46,7 +48,8 @@ class TestMeasurementsAPI:
             "measurements": [
                 {
                     "session_id": test_uuid,
-                    "imsi": "310150123456789",
+                    "android_id": "310150123456789",
+                    "cid": 47108,
                     "measured_at": "2026-04-27T10:00:00Z",
                     "latitude": 52.2297,
                     "longitude": 21.0122,
@@ -92,7 +95,7 @@ class TestBatchValidation:
             "measurements": [
                 {
                     "session_id": str(uuid4()),
-                    "imsi": "123456789012345",
+                    "android_id": "123456789012345",
                     "measured_at": "2026-04-27T10:00:00Z",
                     "latitude": 9999,
                     "longitude": 21.0122,
