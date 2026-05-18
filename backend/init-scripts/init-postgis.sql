@@ -1,1 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
+
+CREATE DATABASE netwalk_test;
+\c netwalk_test
+CREATE EXTENSION IF NOT EXISTS postgis;
