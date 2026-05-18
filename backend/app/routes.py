@@ -1,6 +1,6 @@
 import gzip
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import uuid4
 
@@ -17,7 +17,7 @@ router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def measurement_filters(
+def measurement_filters(  # noqa: PLR0913
     query,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -145,13 +145,13 @@ async def create_measurements_batch(request: Request, db: DbSession):
 
 
 @router.post("/sessions/start", response_model=schemas.SessionResponse)
-def start_session(db: DbSession):
+def start_session():
     new_session_id = uuid4()
-    return schemas.SessionResponse(session_id=new_session_id, started_at=datetime.utcnow())
+    return schemas.SessionResponse(session_id=new_session_id, started_at=datetime.now(UTC))
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(session_id: str, db: DbSession):
+def stop_session(session_id: str):
     return {"status": "ok", "message": f"Session {session_id} stopped"}
 
 
@@ -180,7 +180,7 @@ def get_sessions(db: DbSession):
 
 
 @router.get("/measurements/filtered", response_model=list[schemas.MeasurementResponse])
-def get_measurements_filtered(
+def get_measurements_filtered(  # noqa: PLR0913
     db: DbSession,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -220,7 +220,7 @@ def get_measurements_filtered(
 
 
 @router.get("/measurements/statistics", response_model=schemas.StatisticsResponse)
-def get_measurements_stats(
+def get_measurements_stats(  # noqa: PLR0913
     db: DbSession,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
