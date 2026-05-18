@@ -28,4 +28,3 @@ uv.lock~
 .gitignore
 justfile
 *.md
-
