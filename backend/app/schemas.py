@@ -13,6 +13,7 @@ LON_RANGE = 180
 
 
 class MeasurementBase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     session_id: UUID
     android_id: str
     cid: int | None
