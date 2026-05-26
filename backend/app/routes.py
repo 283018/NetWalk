@@ -10,7 +10,14 @@ from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
-from app.analytics import average_signal
+from app.analytics import (
+    average_signal,
+    device_sessions,
+    get_heatmap_points,
+    kpi_stats,
+    last_measurement,
+    list_devices,
+)
 from app.database import get_db
 
 router = APIRouter()
@@ -69,8 +76,10 @@ def measurement_filters(  # noqa: PLR0913
             geo_func.ST_Within(
                 models.Measurement.location,
                 geo_func.ST_MakeEnvelope(
-                    min_longitude, min_latitude, max_longitude, max_latitude, 4326
-                ),
+                    min_longitude, min_latitude,
+                    max_longitude, max_latitude,
+                    4326
+                )
             )
         )
 
@@ -82,18 +91,108 @@ def health():
     return {"status": "ok"}
 
 
-# Zmiana: używamy MeasurementResponse zamiast MeasurementCreate
-@router.get(
-    "/measurements",
-    response_model=list[schemas.MeasurementResponse],
-)
-def get_measurements(db: DbSession):
-    return db.query(models.Measurement).limit(100).all()
+@router.get("/measurements", response_model=list[schemas.MeasurementResponse])
+def get_measurements(db: DbSession, limit: int = Query(default=100, le=1000)):
+    return (
+        db.query(models.Measurement)
+        .order_by(models.Measurement.measured_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/measurements/filtered", response_model=list[schemas.MeasurementResponse])
+def get_measurements_filtered(
+    db: DbSession,
+    session_id: str | None = None,
+    android_id: str | None = None,
+    network_type: str | None = None,
+    cell_id: str | None = None,
+    min_rsrp: int | None = None,
+    max_rsrp: int | None = None,
+    min_sinr: int | None = None,
+    min_throughput: float | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    min_latitude: float | None = None,
+    max_latitude: float | None = None,
+    min_longitude: float | None = None,
+    max_longitude: float | None = None,
+    limit: int = Query(default=100, le=1000),
+):
+    query = db.query(models.Measurement)
+
+    query = measurement_filters(
+        query,
+        session_id=session_id,
+        android_id=android_id,
+        network_type=network_type,
+        cell_id=cell_id,
+        min_rsrp=min_rsrp,
+        max_rsrp=max_rsrp,
+        min_sinr=min_sinr,
+        min_throughput=min_throughput,
+        start_date=start_date,
+        end_date=end_date,
+        min_latitude=min_latitude,
+        max_latitude=max_latitude,
+        min_longitude=min_longitude,
+        max_longitude=max_longitude,
+    )
+
+    return query.order_by(models.Measurement.measured_at.desc()).limit(limit).all()
 
 
 @router.get("/analysis/average-signal")
 def get_avg_signal(db: DbSession):
     return average_signal(db)
+
+
+@router.get("/analysis/kpi")
+def get_kpi(
+    db: DbSession,
+    network_type: str | None = None,
+    android_id: str | None = None,
+):
+    return kpi_stats(db, network_type=network_type, android_id=android_id)
+
+
+@router.get("/analysis/heatmap")
+def get_heatmap(
+    db: DbSession,
+    parameter: str = Query(default="rsrp"),
+    session_id: str | None = None,
+    android_id: str | None = None,
+    network_type: str | None = None,
+    limit: int = Query(default=1000, le=5000),
+):
+    return get_heatmap_points(
+        db=db,
+        parameter=parameter,
+        session_id=session_id,
+        android_id=android_id,
+        network_type=network_type,
+        limit=limit,
+    )
+
+
+@router.get("/analysis/last-measurement")
+def get_last_measurement(db: DbSession):
+    return last_measurement(db)
+
+
+@router.get("/devices")
+def get_devices(db: DbSession):
+    return list_devices(db)
+
+
+@router.get("/devices/{android_id}/sessions")
+def get_device_sessions(
+    android_id: str,
+    db: DbSession,
+    limit: int = Query(default=5, le=20),
+):
+    return device_sessions(db, android_id=android_id, limit=limit)
 
 
 @router.post("/measurements/batch", response_model=schemas.BatchResponse)
@@ -151,21 +250,22 @@ def start_session():
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(session_id: str):
+def stop_session(session_id: str, db: DbSession):
     return {"status": "ok", "message": f"Session {session_id} stopped"}
 
 
 @router.get("/sessions")
 def get_sessions(db: DbSession):
-
     sessions = (
         db.query(
             models.Measurement.session_id,
             func.min(models.Measurement.measured_at).label("started_at"),
+            func.max(models.Measurement.measured_at).label("ended_at"),
             func.count(models.Measurement.id).label("measurement_count"),
+            func.count(func.distinct(models.Measurement.android_id)).label("device_count"),
         )
         .group_by(models.Measurement.session_id)
-        .order_by(func.min(models.Measurement.measured_at).desc())
+        .order_by(func.max(models.Measurement.measured_at).desc())
         .all()
     )
 
@@ -173,7 +273,9 @@ def get_sessions(db: DbSession):
         {
             "session_id": str(s.session_id),
             "started_at": s.started_at,
+            "ended_at": s.ended_at,
             "measurement_count": s.measurement_count,
+            "device_count": s.device_count,
         }
         for s in sessions
     ]
@@ -306,8 +408,14 @@ def get_measurements_stats(  # noqa: PLR0913
         "avg_sinr": float(stats.avg_sinr) if stats.avg_sinr is not None else None,
         "min_sinr": stats.min_sinr,
         "max_sinr": stats.max_sinr,
-        "avg_throughput": float(stats.avg_throughput) if stats.avg_throughput is not None else None,
-        "max_throughput": float(stats.max_throughput) if stats.max_throughput is not None else None,
+
+        "avg_throughput": float(stats.avg_throughput)
+        if stats.avg_throughput is not None
+        else None,
+        "max_throughput": float(stats.max_throughput)
+        if stats.max_throughput is not None
+        else None,
+
         "network_distribution": network_dist,
         "band_distribution": band_dist,
         "measurements_by_hour": hour_dist,
