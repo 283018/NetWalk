@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Circle, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
+import logo from "./Logo_dark_no_bg.png";
 
 const API_URL = "http://127.0.0.1:8000";
 const FALLBACK_CENTER = [51.110556, 17.060556];
@@ -63,7 +64,7 @@ function Sidebar({ page, setPage }) {
   return (
     <aside className="sidebar">
       <div className="logo-container">
-        <img src="/Logo_dark_no_bg.png" alt="NetWalk logo" className="logo-image" />
+        <img src={logo} alt="NetWalk logo" className="logo-image" />
       </div>
 
       <nav>
