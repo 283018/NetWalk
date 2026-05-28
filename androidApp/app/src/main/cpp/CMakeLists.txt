@@ -33,6 +33,9 @@ configure_file(
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Possibly prevents linker policy violation
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Declare native shared library
 add_library(netwalkIperf SHARED
         ${JNI_SRC_FILE}                        # JNI interface
