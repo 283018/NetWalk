@@ -6,8 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5433:5432"
+    expose:
+      - "5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -16,6 +16,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - netwalk-network
+
 
   api:
     build:
@@ -43,16 +46,20 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - netwalk-network
 
   iperf3:
     image: networkstatic/iperf3
     container_name: netwalk-iperf
     # android możee ucinać połączenia na niestandartowych portach, więc reroutujemy do 443
     ports:
-      - "443:5201/tcp"
-      - "443:5201/udp"
+      - "5201:5201/tcp"
+      - "5201:5201/udp"
     command: ["-s"]
     restart: always
+    networks:
+      - netwalk-network
 
   tests:
     build:
@@ -60,12 +67,22 @@ services:
       target: test
     container_name: netwalk-tests
     environment:
-      TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+      TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/netwalk_test
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/netwalk_test
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: netwalk_test
     depends_on:
       timescaledb:
         condition: service_healthy
     profiles:
       - test
+    networks:
+      - netwalk-network
+
+networks:
+  netwalk-network:
+    driver: bridge
 
 volumes:
   db_data:
