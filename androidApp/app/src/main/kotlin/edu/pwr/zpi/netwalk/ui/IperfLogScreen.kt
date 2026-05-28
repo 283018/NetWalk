@@ -1,5 +1,6 @@
 package edu.pwr.zpi.netwalk.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,11 +14,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -35,11 +34,10 @@ data class IperfLogEntry(
 )
 
 @Composable
-fun IperfLogScreen(
-    viewModel: NetworkViewModel,
-    onNavigateBack: () -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+fun IperfLogScreen(viewModel: NetworkViewModel) {
+    Column(
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
+    ) {
         Text(
             text = "iPerf Logs",
             style = MaterialTheme.typography.titleMedium,
@@ -99,13 +97,6 @@ fun IperfLogScreen(
                     HorizontalDivider(color = Color.DarkGray, thickness = 0.5.dp)
                 }
             }
-        }
-
-        TextButton(
-            onClick = onNavigateBack,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        ) {
-            Text("<- Back to Network Info")
         }
     }
 }

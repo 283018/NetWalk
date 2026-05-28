@@ -31,7 +31,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -63,7 +62,6 @@ fun NetworkInfoScreen(
     tm: TelephonyManager,
     viewModel: NetworkViewModel = _viewModel(),
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToIperf: () -> Unit = {},
 ) {
     val networkData = viewModel.uiStateNetwork
     val (latitude, longitude) = viewModel.uiStateLocation
@@ -125,19 +123,11 @@ fun NetworkInfoScreen(
                 }
             }
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            OutlinedButton(onClick = onNavigateToIperf) {
-                Text("iPerf")
-            }
-        }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
