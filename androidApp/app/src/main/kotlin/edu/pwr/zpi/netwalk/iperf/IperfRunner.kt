@@ -1,8 +1,11 @@
 package edu.pwr.zpi.netwalk.iperf
 
 // disable android optimization for these functions names
+import android.net.TrafficStats
 import androidx.annotation.Keep
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -38,32 +41,40 @@ object IperfRunner {
     external fun forceStopIperfTest(callback: IperfCallback)
 
     suspend fun runIperfOnce(command: Array<String>): String =
-        suspendCancellableCoroutine { cont ->
+        withContext(Dispatchers.IO) {
+            TrafficStats.setThreadStatsTag(0x00001000)
 
-            val outputBuffer = StringBuilder()
+            try {
+                suspendCancellableCoroutine { cont ->
 
-            val callback = object : IperfCallback {
-                override fun onOutput(message: String) {
-                    outputBuffer.append(message)
-                }
+                    val outputBuffer = StringBuilder()
 
-                override fun onError(error: String) {
-                    if (cont.isActive) {
-                        cont.resumeWithException(RuntimeException(error))
+                    val callback = object : IperfCallback {
+                        override fun onOutput(message: String) {
+                            outputBuffer.append(message)
+                        }
+
+                        override fun onError(error: String) {
+                            if (cont.isActive) {
+                                cont.resumeWithException(RuntimeException(error))
+                            }
+                        }
+
+                        override fun onComplete() {
+                            if (cont.isActive) {
+                                cont.resume(outputBuffer.toString())
+                            }
+                        }
+                    }
+
+                    runIperfLive(command, callback)
+
+                    cont.invokeOnCancellation {
+                        forceStopIperfTest(callback)
                     }
                 }
-
-                override fun onComplete() {
-                    if (cont.isActive) {
-                        cont.resume(outputBuffer.toString())
-                    }
-                }
-            }
-
-            runIperfLive(command, callback)
-
-            cont.invokeOnCancellation {
-                forceStopIperfTest(callback)
+            } finally {
+                TrafficStats.clearThreadStatsTag()
             }
         }
 }
