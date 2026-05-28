@@ -77,14 +77,12 @@
 #define PACKAGE_URL "https://software.es.net/iperf/"
 #define PACKAGE_VERSION "3.21"
 #define VERSION "3.21"
-// ──────────────────────────────
-// SECTION TO UPDATE ON IPERF VERSION UPGRADE
-// (Update version strings when pulling new iperf source)
-// ──────────────────────────────
-#define PACKAGE_STRING "iperf @PACKAGE_VERSION@" // Auto Update
-#define PACKAGE_VERSION "@PACKAGE_VERSION@"      // Auto Update
-#define VERSION "@PACKAGE_VERSION@"              // Auto Update
 
 #define STDC_HEADERS 1 // Define if ANSI C headers are available
+
+// one of possible fix for network socket hang
+#define HAVE_GETADDRINFO 1
+#define HAVE_GETNAMEINFO 1
+#define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
 /* #undef const */ // Do not touch — reserved for legacy platforms
