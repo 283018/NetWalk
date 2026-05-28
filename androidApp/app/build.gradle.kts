@@ -64,6 +64,21 @@ android {
         }
     }
 
+    // prevent some names optimizations
+    buildTypes {
+        // not used anyway
+        release {
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+        debug {
+            isMinifyEnabled = false
+        }
+    }
+
     buildFeatures {
         compose = true
     }
