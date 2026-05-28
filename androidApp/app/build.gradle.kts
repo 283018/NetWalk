@@ -5,6 +5,28 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+val commitCount = try {
+    providers
+        .exec {
+            commandLine("git", "rev-list", "--count", "HEAD")
+        }.standardOutput.asText
+        .get()
+        .trim()
+} catch (e: Exception) {
+    "1"
+}
+
+val describe = try {
+    providers
+        .exec {
+            commandLine("git", "describe", "--tags", "--always")
+        }.standardOutput.asText
+        .get()
+        .trim()
+} catch (e: Exception) {
+    "0.0.0"
+}
+
 android {
     namespace = "edu.pwr.zpi.netwalk"
     compileSdk = 36
@@ -20,8 +42,9 @@ android {
         applicationId = "edu.pwr.zpi.netwalk"
         minSdk = 30 // 29 API potrzebne dla requestCellInfoUpdate
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1"
+
+        versionCode = commitCount.toInt() // using commits count as code version
+        versionName = describe.substringBefore("-").removePrefix("v") // using last tag as app version
 
         externalNativeBuild {
             cmake {
@@ -56,8 +79,6 @@ android {
             version = libs.versions.cmake.get()
         }
     }
-
-    // TODO: change name of produced apk
 }
 
 kotlin {
