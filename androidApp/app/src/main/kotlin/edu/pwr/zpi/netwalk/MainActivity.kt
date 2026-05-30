@@ -81,27 +81,31 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ) {
-                            val navBackStackEntry by navController.currentBackStackEntryAsState()
-                            val currentRoute = navBackStackEntry?.destination?.route
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
 
-                            items.forEach { item ->
-                                NavigationBarItem(
-                                    icon = { Icon(imageVector = item.icon, contentDescription = item.title) },
-                                    label = { Text(item.title) },
-                                    selected = currentRoute == item.route,
-                                    onClick = {
-                                        navController.navigate(item.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                        val shouldShowBottomBar = items.any { it.route == currentRoute }
+
+                        if (shouldShowBottomBar) {
+                            NavigationBar(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ) {
+                                items.forEach { item ->
+                                    NavigationBarItem(
+                                        icon = { Icon(imageVector = item.icon, contentDescription = item.title) },
+                                        label = { Text(item.title) },
+                                        selected = currentRoute == item.route,
+                                        onClick = {
+                                            navController.navigate(item.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    },
-                                )
+                                        },
+                                    )
+                                }
                             }
                         }
                     },
