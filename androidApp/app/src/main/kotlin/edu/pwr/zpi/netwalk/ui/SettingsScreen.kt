@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -51,15 +53,18 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var saveStatus by remember { mutableStateOf<String?>(null) }
 
+    val scrollState = rememberScrollState()
+
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(8.dp),
     ) {
         Text(
             text = "Server Configuration",
-            modifier = Modifier.padding(bottom = 8.dp),
+            modifier = Modifier.padding(bottom = 6.dp),
             color = MaterialTheme.colorScheme.primary,
         )
 
@@ -82,7 +87,7 @@ fun SettingsScreen(
         )
 
         SettingStringField(
-            label = "Iperf Port",
+            label = "Iperf Port (-p)",
             value = editableSettings.iperfPort,
             onValueChange = { editableSettings = editableSettings.copy(iperfPort = it) },
             placeholder = viewModel.defaults.iperfPort,
@@ -91,13 +96,13 @@ fun SettingsScreen(
 
         // TODO: disable flag change support option in future
         SettingStringField(
-            label = "Iperf Length",
+            label = "Iperf Length (-t)",
             value = editableSettings.iperfTime,
             onValueChange = { editableSettings = editableSettings.copy(iperfTime = it) },
             placeholder = viewModel.defaults.iperfTime,
         )
         SettingStringField(
-            label = "Iperf Streams",
+            label = "Iperf Streams (-P)",
             value = editableSettings.iperfParallel,
             onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
             placeholder = viewModel.defaults.iperfParallel,
@@ -116,7 +121,7 @@ fun SettingsScreen(
             Text(
                 text = "Send immediately",
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier.padding(start = 6.dp),
             )
         }
 
@@ -141,7 +146,7 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         TextButton(
             onClick = onNavigateBack,
