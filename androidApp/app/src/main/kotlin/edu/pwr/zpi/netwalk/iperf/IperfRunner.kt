@@ -67,11 +67,19 @@ object IperfRunner {
                         }
                     }
 
-                    runIperfLive(command, callback)
-
                     cont.invokeOnCancellation {
                         forceStopIperfTest(callback)
                     }
+
+                    Thread {
+                        try {
+                            runIperfLive(command, callback)
+                        } catch (e: Exception) {
+                            if (cont.isActive) {
+                                cont.resumeWithException(e)
+                            }
+                        }
+                    }.start()
                 }
             } finally {
                 TrafficStats.clearThreadStatsTag()
