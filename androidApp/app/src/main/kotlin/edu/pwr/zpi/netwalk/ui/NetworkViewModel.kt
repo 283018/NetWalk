@@ -43,6 +43,8 @@ data class NetworkSettingsState(
     val iperfPort: String,
     val iperfTime: String,
     val iperfParallel: String,
+    val packageSize: String,
+    val useUdp: Boolean,
     val sendImmediately: Boolean,
 )
 
@@ -99,6 +101,8 @@ class NetworkViewModel(
         settings.iperfPort.flow,
         settings.iperfTime.flow,
         settings.iperfParallel.flow,
+        settings.packageSize.flow,
+        settings.useUdp.flow,
         settings.sendImmediately.flow,
     ) { values: Array<Any?> ->
         NetworkSettingsState(
@@ -107,7 +111,9 @@ class NetworkViewModel(
             iperfPort = values[2] as String,
             iperfTime = values[3] as String,
             iperfParallel = values[4] as String,
-            sendImmediately = values[5] as Boolean,
+            packageSize = values[5] as String,
+            useUdp = values[6] as Boolean,
+            sendImmediately = values[7] as Boolean,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -118,6 +124,8 @@ class NetworkViewModel(
             settings.iperfPort.defaultValue,
             settings.iperfTime.defaultValue,
             settings.iperfParallel.defaultValue,
+            settings.packageSize.defaultValue,
+            settings.useUdp.defaultValue,
             settings.sendImmediately.defaultValue,
         ),
     )
@@ -129,6 +137,8 @@ class NetworkViewModel(
             settings.iperfPort.update(state.iperfPort)
             settings.iperfTime.update(state.iperfTime)
             settings.iperfParallel.update(state.iperfParallel)
+            settings.packageSize.update(state.packageSize)
+            settings.useUdp.update(state.useUdp)
             settings.sendImmediately.update(state.sendImmediately)
         }
     }
@@ -139,6 +149,8 @@ class NetworkViewModel(
         settings.iperfPort.defaultValue,
         settings.iperfTime.defaultValue,
         settings.iperfParallel.defaultValue,
+        settings.packageSize.defaultValue,
+        settings.useUdp.defaultValue,
         settings.sendImmediately.defaultValue,
     )
 
@@ -315,35 +327,38 @@ class NetworkViewModel(
         }
     }
 
-    val iperfCommand = combine(
-        settings.iperfIp.flow,
-        settings.iperfPort.flow,
-        settings.iperfTime.flow,
-        settings.iperfParallel.flow,
-    ) { ip, port, time, parallel ->
-        buildList {
-            add("iperf3")
-            add("-c")
-            add(ip)
+    val iperfCommand = uiSettingsState
+        .map { state ->
+            buildList {
+                add("iperf3")
+                add("-c")
+                add(state.iperfIp)
 
-            if (port.isNotBlank()) {
-                add("-p")
-                add(port)
-            }
+                if (state.iperfPort.isNotBlank()) {
+                    add("-p")
+                    add(state.iperfPort)
+                }
 
-            add("-t")
-            add(time)
+                add("-t")
+                add(state.iperfTime)
 
-            if (parallel.isNotBlank()) {
-                add("-P")
-                add(parallel)
-            }
+                if (state.iperfParallel.isNotBlank()) {
+                    add("-P")
+                    add(state.iperfParallel)
+                }
 
-            add("--json")
-        }.toTypedArray()
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = arrayOf("iperf3"), // temporary fallback on init, reconstructed form default arguments later
-    )
+                if (state.useUdp) {
+                    add("-u")
+                }
+
+                add("-M")
+                add(state.packageSize)
+
+                add("--json")
+            }.toTypedArray()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = arrayOf("iperf3"), // temporary fallback on init, reconstructed form default arguments later
+        )
 }

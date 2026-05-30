@@ -107,6 +107,29 @@ fun SettingsScreen(
             onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
             placeholder = viewModel.defaults.iperfParallel,
         )
+        SettingStringField(
+            label = "Iperf max package size (-M)",
+            value = editableSettings.packageSize,
+            onValueChange = { editableSettings = editableSettings.copy(packageSize = it) },
+            placeholder = viewModel.defaults.packageSize,
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = editableSettings.useUdp,
+                onCheckedChange = { checked ->
+                    editableSettings = editableSettings.copy(useUdp = checked)
+                },
+            )
+            Text(
+                text = "Use UDP protocol (-u)",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 6.dp),
+            )
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
