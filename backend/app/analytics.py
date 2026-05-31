@@ -1,3 +1,5 @@
+import numpy as np
+from scipy.interpolate import griddata
 from datetime import datetime
 
 from geoalchemy2 import functions as geo_func
@@ -95,8 +97,8 @@ def get_heatmap_points(
     metric_column = allowed_parameters.get(parameter, Measurement.rsrp)
 
     query = db.query(
-        geo_func.ST_Y(geo_func.ST_GeometryFromWKB(Measurement.location)).label("latitude"),
-        geo_func.ST_X(geo_func.ST_GeometryFromWKB(Measurement.location)).label("longitude"),
+        geo_func.ST_Y(geo_func.ST_GeomFromWKB(Measurement.location)).label("latitude"),
+        geo_func.ST_X(geo_func.ST_GeomFromWKB(Measurement.location)).label("longitude"),
         metric_column.label("value"),
         Measurement.session_id,
         Measurement.android_id,
@@ -205,4 +207,82 @@ def last_measurement(db: Session):
         "battery_level": row.battery_level,
         "throughput_mbps": row.throughput_mbps,
         "test_duration": row.test_duration,
+    }
+
+
+def propagation_map(
+    db: Session,
+    parameter: str = "rsrp",
+    android_id: str | None = None,
+    session_id: str | None = None,
+    network_type: str | None = None,
+    resolution: int = 50,
+):
+    allowed = {
+        "rsrp": Measurement.rsrp,
+        "rsrq": Measurement.rsrq,
+        "sinr": Measurement.sinr,
+        "throughput_mbps": Measurement.throughput_mbps,
+    }
+    metric_column = allowed.get(parameter, Measurement.rsrp)
+
+    query = db.query(
+        geo_func.ST_Y(geo_func.ST_GeomFromWKB(Measurement.location)).label("lat"),
+        geo_func.ST_X(geo_func.ST_GeomFromWKB(Measurement.location)).label("lon"),
+        metric_column.label("value"),
+    ).filter(Measurement.location.isnot(None), metric_column.isnot(None))
+
+    if android_id:
+        query = query.filter(Measurement.android_id == android_id)
+    if session_id:
+        query = query.filter(Measurement.session_id == session_id)
+    if network_type:
+        query = query.filter(Measurement.network_type == network_type)
+
+    rows = query.all()
+
+    if len(rows) < 3:
+        return {"points": [], "bounds": None}
+
+    lats = np.array([r.lat for r in rows])
+    lons = np.array([r.lon for r in rows])
+    values = np.array([r.value for r in rows], dtype=float)
+
+    lat_min, lat_max = lats.min(), lats.max()
+    lon_min, lon_max = lons.min(), lons.max()
+
+    # margin żeby mapa nie była obcięta
+    margin = 0.001
+    grid_lat, grid_lon = np.mgrid[
+        lat_min - margin : lat_max + margin : complex(resolution),
+        lon_min - margin : lon_max + margin : complex(resolution),
+    ]
+
+    grid_values = griddata(
+        points=np.column_stack([lats, lons]),
+        values=values,
+        xi=(grid_lat, grid_lon),
+        method="cubic",
+    )
+
+    points = []
+    for i in range(resolution):
+        for j in range(resolution):
+            val = grid_values[i, j]
+            if not np.isnan(val):
+                points.append({
+                    "lat": float(grid_lat[i, j]),
+                    "lon": float(grid_lon[i, j]),
+                    "value": float(val),
+                })
+
+    return {
+        "points": points,
+        "bounds": {
+            "lat_min": float(lat_min),
+            "lat_max": float(lat_max),
+            "lon_min": float(lon_min),
+            "lon_max": float(lon_max),
+        },
+        "parameter": parameter,
     }
