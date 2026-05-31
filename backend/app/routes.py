@@ -1,6 +1,6 @@
 import gzip
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 from uuid import uuid4
 
@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from geoalchemy2 import functions as geo_func
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
+from app.analytics import propagation_map
 
 from app import models, schemas
 from app.analytics import (
@@ -24,7 +25,7 @@ router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def measurement_filters(  # noqa: PLR0913
+def measurement_filters(
     query,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -41,31 +42,36 @@ def measurement_filters(  # noqa: PLR0913
     min_longitude: float | None = None,
     max_longitude: float | None = None,
 ):
-
     if session_id:
         query = query.filter(models.Measurement.session_id == session_id)
+
     if android_id:
         query = query.filter(models.Measurement.android_id == android_id)
+
     if network_type:
         query = query.filter(models.Measurement.network_type == network_type)
+
     if cell_id:
         query = query.filter(models.Measurement.cell_id == cell_id)
 
     if min_rsrp is not None:
         query = query.filter(models.Measurement.rsrp >= min_rsrp)
+
     if max_rsrp is not None:
         query = query.filter(models.Measurement.rsrp <= max_rsrp)
+
     if min_sinr is not None:
         query = query.filter(models.Measurement.sinr >= min_sinr)
+
     if min_throughput is not None:
         query = query.filter(models.Measurement.throughput_mbps >= min_throughput)
 
     if start_date:
         query = query.filter(models.Measurement.measured_at >= start_date)
+
     if end_date:
         query = query.filter(models.Measurement.measured_at <= end_date)
 
-    # filtr przestrzenny - bounding box
     if (
         min_latitude is not None
         and max_latitude is not None
@@ -76,10 +82,12 @@ def measurement_filters(  # noqa: PLR0913
             geo_func.ST_Within(
                 models.Measurement.location,
                 geo_func.ST_MakeEnvelope(
-                    min_longitude, min_latitude,
-                    max_longitude, max_latitude,
-                    4326
-                )
+                    min_longitude,
+                    min_latitude,
+                    max_longitude,
+                    max_latitude,
+                    4326,
+                ),
             )
         )
 
@@ -200,7 +208,10 @@ async def create_measurements_batch(request: Request, db: DbSession):
     raw_body = await request.body()
 
     if not raw_body:
-        raise HTTPException(status_code=400, detail="Brak danych w żądaniu.")
+        raise HTTPException(
+            status_code=400,
+            detail="Brak danych w żądaniu."
+        )
 
     encoding = request.headers.get("content-encoding", "").lower()
 
@@ -209,44 +220,68 @@ async def create_measurements_batch(request: Request, db: DbSession):
             decompressed = gzip.decompress(raw_body)
             payload_text = decompressed.decode("utf-8")
         else:
-            # jak nie bedize nagłówka Gzip, zakładam, że to zwykły json
             payload_text = raw_body.decode("utf-8")
+
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}",
+            detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}"
         ) from e
 
     try:
         payload = json.loads(payload_text)
         batch = schemas.MeasurementBatch(**payload)
+
     except json.JSONDecodeError:
         raise HTTPException(
-            status_code=400, detail="dane nie są poprawnym formatem JSON."
+            status_code=400,
+            detail="Dane nie są poprawnym formatem JSON."
         ) from None
+
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Błąd Pydantic: {e!s}") from e
+        raise HTTPException(
+            status_code=422,
+            detail=f"Błąd Pydantic: {e!s}"
+        ) from e
 
     batch_id = batch.measurements[0].session_id if batch.measurements else None
 
     if not batch.measurements:
-        raise HTTPException(status_code=400, detail="Brak pomiarów w żądaniu.")
+        return {
+            "inserted": 0,
+            "batch_id": batch_id
+        }
 
-    rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
+    rows = [
+        models.Measurement(**item.to_db_dict())
+        for item in batch.measurements
+    ]
 
     try:
         db.add_all(rows)
         db.commit()
-        return {"inserted": len(rows), "batch_id": batch_id}
+
+        return {
+            "inserted": len(rows),
+            "batch_id": batch_id
+        }
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database insert failed: {e!s}") from e
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database insert failed: {e!s}"
+        ) from e
 
 
 @router.post("/sessions/start", response_model=schemas.SessionResponse)
-def start_session():
+def start_session(db: DbSession):
     new_session_id = uuid4()
-    return schemas.SessionResponse(session_id=new_session_id, started_at=datetime.now(UTC))
+    return schemas.SessionResponse(
+        session_id=new_session_id,
+        started_at=datetime.utcnow(),
+    )
 
 
 @router.post("/sessions/{session_id}/stop")
@@ -281,48 +316,8 @@ def get_sessions(db: DbSession):
     ]
 
 
-@router.get("/measurements/filtered", response_model=list[schemas.MeasurementResponse])
-def get_measurements_filtered(  # noqa: PLR0913
-    db: DbSession,
-    session_id: str | None = None,
-    android_id: str | None = None,
-    network_type: str | None = None,
-    cell_id: str | None = None,
-    min_rsrp: int | None = None,
-    max_rsrp: int | None = None,
-    min_sinr: int | None = None,
-    min_throughput: float | None = None,
-    start_date: datetime | None = None,
-    end_date: datetime | None = None,
-    min_latitude: float | None = None,
-    max_latitude: float | None = None,
-    min_longitude: float | None = None,
-    max_longitude: float | None = None,
-    limit: int = Query(default=100, le=1000),
-):
-    query = db.query(models.Measurement)
-    query = measurement_filters(
-        query,
-        session_id=session_id,
-        android_id=android_id,
-        network_type=network_type,
-        cell_id=cell_id,
-        min_rsrp=min_rsrp,
-        max_rsrp=max_rsrp,
-        min_sinr=min_sinr,
-        min_throughput=min_throughput,
-        start_date=start_date,
-        end_date=end_date,
-        min_latitude=min_latitude,
-        max_latitude=max_latitude,
-        min_longitude=min_longitude,
-        max_longitude=max_longitude,
-    )
-    return query.order_by(models.Measurement.measured_at.desc()).limit(limit).all()
-
-
 @router.get("/measurements/statistics", response_model=schemas.StatisticsResponse)
-def get_measurements_stats(  # noqa: PLR0913
+def get_measurements_stats(
     db: DbSession,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
@@ -348,12 +343,15 @@ def get_measurements_stats(  # noqa: PLR0913
     stats = q.with_entities(
         func.count(func.distinct(models.Measurement.session_id)).label("unique_sessions"),
         func.count(func.distinct(models.Measurement.android_id)).label("unique_devices"),
+
         func.avg(models.Measurement.rsrp).label("avg_rsrp"),
         func.min(models.Measurement.rsrp).label("min_rsrp"),
         func.max(models.Measurement.rsrp).label("max_rsrp"),
+
         func.avg(models.Measurement.sinr).label("avg_sinr"),
         func.min(models.Measurement.sinr).label("min_sinr"),
         func.max(models.Measurement.sinr).label("max_sinr"),
+
         func.avg(models.Measurement.throughput_mbps).label("avg_throughput"),
         func.max(models.Measurement.throughput_mbps).label("max_throughput"),
     ).first()
@@ -371,7 +369,8 @@ def get_measurements_stats(  # noqa: PLR0913
     network_dist = {
         row[0]: row[1]
         for row in filtered_base.with_entities(
-            models.Measurement.network_type, func.count(models.Measurement.id)
+            models.Measurement.network_type,
+            func.count(models.Measurement.id),
         )
         .group_by(models.Measurement.network_type)
         .all()
@@ -381,7 +380,8 @@ def get_measurements_stats(  # noqa: PLR0913
     band_dist = {
         str(row[0]): row[1]
         for row in filtered_base.with_entities(
-            models.Measurement.band, func.count(models.Measurement.id)
+            models.Measurement.band,
+            func.count(models.Measurement.id),
         )
         .group_by(models.Measurement.band)
         .all()
@@ -391,7 +391,8 @@ def get_measurements_stats(  # noqa: PLR0913
     hour_dist = {
         int(row[0]): row[1]
         for row in filtered_base.with_entities(
-            extract("hour", models.Measurement.measured_at), func.count(models.Measurement.id)
+            extract("hour", models.Measurement.measured_at),
+            func.count(models.Measurement.id),
         )
         .group_by(extract("hour", models.Measurement.measured_at))
         .all()
@@ -402,9 +403,11 @@ def get_measurements_stats(  # noqa: PLR0913
         "total_measurements": total,
         "unique_sessions": stats.unique_sessions or 0,
         "unique_devices": stats.unique_devices or 0,
+
         "avg_rsrp": float(stats.avg_rsrp) if stats.avg_rsrp is not None else None,
         "min_rsrp": stats.min_rsrp,
         "max_rsrp": stats.max_rsrp,
+
         "avg_sinr": float(stats.avg_sinr) if stats.avg_sinr is not None else None,
         "min_sinr": stats.min_sinr,
         "max_sinr": stats.max_sinr,
@@ -420,3 +423,21 @@ def get_measurements_stats(  # noqa: PLR0913
         "band_distribution": band_dist,
         "measurements_by_hour": hour_dist,
     }
+
+@router.get("/analysis/propagation")
+def get_propagation_map(
+    db: DbSession,
+    parameter: str = Query(default="rsrp"),
+    android_id: str | None = None,
+    session_id: str | None = None,
+    network_type: str | None = None,
+    resolution: int = Query(default=50, le=100),
+):
+    return propagation_map(
+        db=db,
+        parameter=parameter,
+        android_id=android_id,
+        session_id=session_id,
+        network_type=network_type,
+        resolution=resolution,
+    )
