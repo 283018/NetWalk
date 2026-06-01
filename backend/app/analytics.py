@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.interpolate import griddata
 from datetime import datetime
 
 from geoalchemy2 import functions as geo_func
@@ -258,12 +257,17 @@ def propagation_map(
         lon_min - margin : lon_max + margin : complex(resolution),
     ]
 
-    grid_values = griddata(
-        points=np.column_stack([lats, lons]),
-        values=values,
-        xi=(grid_lat, grid_lon),
-        method="cubic",
-    )
+    grid_values = np.zeros_like(grid_lat)
+    power = 2
+    for i in range(resolution):
+        for j in range(resolution):
+            distances = np.sqrt((lats - grid_lat[i, j]) ** 2 + (lons - grid_lon[i, j]) ** 2)
+            if np.min(distances) < 1e-10:
+                grid_values[i, j] = values[np.argmin(distances)]
+            else:
+                weights = 1.0 / distances ** power
+                grid_values[i, j] = np.sum(weights * values) / np.sum(weights)
+
 
     points = []
     for i in range(resolution):
