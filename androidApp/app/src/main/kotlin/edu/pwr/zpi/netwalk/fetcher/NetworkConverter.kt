@@ -108,10 +108,25 @@ object NetworkConverter {
         return if (totalKHz > 0) totalKHz / 1000 else null
     }
 
-    fun duplexModetoString(duplexMode: Int?): String =
-        when (duplexMode) {
+    fun duplexModetoString(
+        duplexMode: Int?,
+        band: Int?,
+    ): String {
+        val mode = when (duplexMode) {
             1 -> "FDD"
             2 -> "TDD"
             else -> "Unknown"
         }
+
+        if (mode == "Unknown" && band != null) {
+            return when (band) {
+                38, 40, 41, 77, 78, 79 -> "TDD"
+                1, 2, 3, 5, 7, 8, 20, 28, 66 -> "FDD"
+
+                else -> "Unknown"
+            }
+        }
+
+        return mode
+    }
 }
