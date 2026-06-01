@@ -24,6 +24,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
@@ -130,8 +133,14 @@ fun IperfMiniChart(
     points: List<ThroughputPoint>,
     modifier: Modifier = Modifier,
 ) {
-    val maxThroughput = points.maxOfOrNull { it.throughputMbps }?.takeIf { it > 0 } ?: 1.0
-    val maxSeconds = points.maxOfOrNull { it.seconds }?.takeIf { it > 0 } ?: 1.0
+    val maxSeconds = points.maxOf { it.seconds }.toFloat()
+    val maxThroughput = (points.maxOf { it.throughputMbps } * 1.1f).toFloat().coerceAtLeast(1f)
+
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(
+        color = Color.LightGray.copy(alpha = 0.7f),
+        fontSize = 10.sp,
+    )
 
     Canvas(
         modifier = modifier
@@ -142,14 +151,59 @@ fun IperfMiniChart(
         val height = size.height
 
         val gridColor = Color.DarkGray.copy(alpha = 0.5f)
-        drawLine(gridColor, Offset(0f, 0f), Offset(width, 0f), strokeWidth = 1f)
-        drawLine(gridColor, Offset(0f, height / 2), Offset(width, height / 2), strokeWidth = 1f)
-        drawLine(gridColor, Offset(0f, height), Offset(width, height), strokeWidth = 1f)
+
+        val paddingLeft = 55.dp.toPx()
+        val paddingBottom = 25.dp.toPx()
+        val paddingTop = 10.dp.toPx()
+        val paddingRight = 10.dp.toPx()
+
+        val chartWidth = width - paddingLeft - paddingRight
+        val chartHeight = height - paddingTop - paddingBottom
+
+        for (i in 0..4) {
+            val factor = i.toFloat() / 4
+            val y = paddingTop + chartHeight - (factor * chartHeight)
+            val valueMbps = factor * maxThroughput
+
+            drawLine(gridColor, Offset(paddingLeft, y), Offset(paddingLeft + chartWidth, y), strokeWidth = 1f)
+
+            val textLayoutResult = textMeasurer.measure(
+                text = "${valueMbps.toInt()} Mbps",
+                style = labelStyle,
+            )
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(
+                    x = paddingLeft - textLayoutResult.size.width - 6.dp.toPx(),
+                    y = y - (textLayoutResult.size.height / 2),
+                ),
+            )
+        }
+
+        for (i in 0..maxSeconds.toInt()) {
+            val factor = i.toFloat() / maxSeconds.toInt()
+            val x = paddingLeft + (factor * chartWidth)
+            val valueSeconds = factor * maxSeconds
+
+            drawLine(gridColor, Offset(x, paddingTop), Offset(x, paddingTop + chartHeight), strokeWidth = 1f)
+
+            val textLayoutResult = textMeasurer.measure(
+                text = "${valueSeconds.toInt()}s",
+                style = labelStyle,
+            )
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(
+                    x = x - (textLayoutResult.size.width / 2),
+                    y = paddingTop + chartHeight + 4.dp.toPx(),
+                ),
+            )
+        }
 
         val path = Path()
         points.forEachIndexed { index, point ->
-            val x = (point.seconds / maxSeconds) * width
-            val y = height - ((point.throughputMbps / maxThroughput) * height)
+            val x = paddingLeft + (point.seconds / maxSeconds) * chartWidth
+            val y = paddingTop + chartHeight - ((point.throughputMbps / maxThroughput) * chartHeight)
 
             if (index == 0) {
                 path.moveTo(x.toFloat(), y.toFloat())
