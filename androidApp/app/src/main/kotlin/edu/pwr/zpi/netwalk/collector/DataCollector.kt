@@ -29,6 +29,7 @@ class DataCollector(
     private val sendRequest: suspend (MeasurementRequest) -> Unit,
     private val shouldForceIperf: () -> Boolean,
     private val onForceIperfHandled: () -> Unit,
+    private val onIperfRawResult: (String) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
@@ -89,6 +90,10 @@ class DataCollector(
                             }
                         } else {
                             null
+                        }
+
+                        if (iperfResult != null) {
+                            onIperfRawResult(iperfResult)
                         }
 
                         val request = networkData.toMeasurementsRequest(
