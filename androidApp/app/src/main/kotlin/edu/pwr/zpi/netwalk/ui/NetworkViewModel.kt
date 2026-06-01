@@ -13,6 +13,8 @@ import edu.pwr.zpi.netwalk.collector.DataCollector
 import edu.pwr.zpi.netwalk.fetcher.MeasurementItem
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
+import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
+import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
@@ -63,6 +65,9 @@ class NetworkViewModel(
     var forceIperfNow by mutableStateOf(false)
         private set
 
+    var lastTestTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+        private set
+
     private var sessionId: String = "" // only passive collection for ui displaying
     private var passiveJobStarted = false
 
@@ -76,6 +81,7 @@ class NetworkViewModel(
 
     fun requestIperfNow() {
         forceIperfNow = true
+        lastTestTimeline = emptyList()
     }
 
     private val flushMutex = Mutex()
@@ -209,6 +215,11 @@ class NetworkViewModel(
         },
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
+        onIperfRawResult = { rawJson ->
+            parseIperfJsonSafe(rawJson)?.let { parsedData ->
+                lastTestTimeline = parsedData.throughputTimeline
+            }
+        },
     )
 
     init {
