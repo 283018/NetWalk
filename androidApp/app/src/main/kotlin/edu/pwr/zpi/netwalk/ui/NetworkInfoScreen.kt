@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -390,7 +389,7 @@ fun StatusFooter(status: String) {
     ) {
         Text(
             text = status,
-            modifier = Modifier.padding(8.dp).navigationBarsPadding(),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelSmall,
             color = if (status.startsWith("Error")) Color(0xFFFFB4AB) else Color(0xFF81C784),
             maxLines = 1,
