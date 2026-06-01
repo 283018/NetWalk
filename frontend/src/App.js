@@ -196,11 +196,11 @@ function HeatmapCard({ title = "Mapa pomiarów", androidId = null, sessionId = n
                 <Circle
                     key={index}
                     center={[point.lat, point.lon]}
-                    radius={40}
+                    radius={15}
                     pathOptions={{
                       color: getColor(point.value, layer),
                       fillColor: getColor(point.value, layer),
-                      fillOpacity: 0.7,
+                      fillOpacity: 0.5,
                       weight: 0,
                     }}
                 />
