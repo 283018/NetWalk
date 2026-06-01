@@ -198,9 +198,10 @@ fun getLteInfo(
     currentServiceState: ServiceState?,
 ): LteNetworkInfo {
     val id = cell.cellIdentity
+    val band = id.bands.maxOrNull()
     val signal = cell.cellSignalStrength
 
-    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode)
+    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode, band)
 
     return LteNetworkInfo(
         isServing = cell.isRegistered,
@@ -225,6 +226,7 @@ fun getNrInfo(
     currentServiceState: ServiceState?,
 ): NrNetworkInfo {
     val id = cell.cellIdentity as CellIdentityNr
+    val band = id.bands.maxOrNull()
     val signal = cell.cellSignalStrength as CellSignalStrengthNr
 
     val cid = if (id.nci != Long.MAX_VALUE && id.nci != 0L) id.nci else null
@@ -235,7 +237,7 @@ fun getNrInfo(
         null
     }
 
-    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode)
+    val duplexMode = NetworkConverter.duplexModetoString(currentServiceState?.duplexMode, band)
 
     return NrNetworkInfo(
         isServing = cell.isRegistered,
