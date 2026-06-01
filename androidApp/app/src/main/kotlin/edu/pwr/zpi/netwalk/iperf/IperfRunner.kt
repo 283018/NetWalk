@@ -68,6 +68,11 @@ object IperfRunner {
         }
 }
 
+data class ThroughputPoint(
+    val seconds: Double,
+    val throughputMbps: Double,
+)
+
 data class IperfParsed(
     val throughputMbps: Double?,
     val meanRtt: Double?,
@@ -78,6 +83,7 @@ data class IperfParsed(
     val startTime: String?,
     val testDuration: Double?,
     val retransmits: Long?,
+    val throughputTimeline: List<ThroughputPoint>,
 )
 
 fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
@@ -98,6 +104,26 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         val senderStats = streamData?.get("sender")?.jsonObject
 
         val timestamp = start?.get("timestamp")?.jsonObject
+
+        val timelinePoints = mutableListOf<ThroughputPoint>()
+        val intervals = json["intervals"]?.jsonArray
+
+        intervals?.forEach { intervalElement ->
+            val intervalObj = intervalElement.jsonObject
+
+            val targetObj = intervalObj["sum"]?.jsonObject
+                ?: intervalObj["streams"]?.jsonArray?.firstOrNull()?.jsonObject
+
+            if (targetObj != null) {
+                val timeEnd = targetObj["end"]?.jsonPrimitive?.doubleOrNull
+                val bps = targetObj["bits_per_second"]?.jsonPrimitive?.doubleOrNull
+
+                if (timeEnd != null && bps != null) {
+                    val mbps = bps / 1_000_000.0
+                    timelinePoints.add(ThroughputPoint(timeEnd, mbps))
+                }
+            }
+        }
 
         IperfParsed(
             // Throughput mbps
@@ -128,6 +154,7 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
                 ?.get("retransmits")
                 ?.jsonPrimitive
                 ?.longOrNull,
+            throughputTimeline = timelinePoints,
         )
     } catch (_: Exception) {
         null
