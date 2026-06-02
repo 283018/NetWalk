@@ -295,6 +295,13 @@ def propagation_map(
         )
         SELECT lat, lon, value FROM idw
         WHERE value IS NOT NULL
+          AND EXISTS (
+              SELECT 1 FROM measurements_filtered m2
+              WHERE ST_Distance(
+                  ST_SetSRID(ST_MakePoint(idw.lon, idw.lat), 4326)::geography,
+                  m2.location
+              ) < 500
+          )
         ORDER BY lat, lon
     """
         ),
