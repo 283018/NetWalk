@@ -1,8 +1,5 @@
-import numpy as np
-from datetime import datetime
-
 from geoalchemy2 import functions as geo_func
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.models import Measurement
@@ -37,15 +34,12 @@ def kpi_stats(db: Session, network_type: str | None = None, android_id: str | No
         func.min(Measurement.rsrp).label("min_rsrp"),
         func.max(Measurement.rsrp).label("max_rsrp"),
         func.avg(Measurement.rsrp).label("avg_rsrp"),
-
         func.min(Measurement.rsrq).label("min_rsrq"),
         func.max(Measurement.rsrq).label("max_rsrq"),
         func.avg(Measurement.rsrq).label("avg_rsrq"),
-
         func.min(Measurement.sinr).label("min_sinr"),
         func.max(Measurement.sinr).label("max_sinr"),
         func.avg(Measurement.sinr).label("avg_sinr"),
-
         func.min(Measurement.throughput_mbps).label("min_throughput"),
         func.max(Measurement.throughput_mbps).label("max_throughput"),
         func.avg(Measurement.throughput_mbps).label("avg_throughput"),
@@ -129,18 +123,19 @@ def get_heatmap_points(
 
 
 def list_devices(db: Session):
-    rows = db.query(
-        Measurement.android_id,
-        func.count(Measurement.id).label("measurement_count"),
-        func.count(func.distinct(Measurement.session_id)).label("session_count"),
-        func.max(Measurement.measured_at).label("last_seen"),
-        func.avg(Measurement.battery_level).label("avg_battery"),
-        func.max(Measurement.battery_level).label("last_battery"),
-    ).group_by(
-        Measurement.android_id
-    ).order_by(
-        func.max(Measurement.measured_at).desc()
-    ).all()
+    rows = (
+        db.query(
+            Measurement.android_id,
+            func.count(Measurement.id).label("measurement_count"),
+            func.count(func.distinct(Measurement.session_id)).label("session_count"),
+            func.max(Measurement.measured_at).label("last_seen"),
+            func.avg(Measurement.battery_level).label("avg_battery"),
+            func.max(Measurement.battery_level).label("last_battery"),
+        )
+        .group_by(Measurement.android_id)
+        .order_by(func.max(Measurement.measured_at).desc())
+        .all()
+    )
 
     return [
         {
@@ -156,21 +151,22 @@ def list_devices(db: Session):
 
 
 def device_sessions(db: Session, android_id: str, limit: int = 5):
-    rows = db.query(
-        Measurement.session_id,
-        func.min(Measurement.measured_at).label("started_at"),
-        func.max(Measurement.measured_at).label("ended_at"),
-        func.count(Measurement.id).label("measurement_count"),
-        func.avg(Measurement.rsrp).label("avg_rsrp"),
-        func.avg(Measurement.sinr).label("avg_sinr"),
-        func.avg(Measurement.throughput_mbps).label("avg_throughput"),
-    ).filter(
-        Measurement.android_id == android_id
-    ).group_by(
-        Measurement.session_id
-    ).order_by(
-        func.max(Measurement.measured_at).desc()
-    ).limit(limit).all()
+    rows = (
+        db.query(
+            Measurement.session_id,
+            func.min(Measurement.measured_at).label("started_at"),
+            func.max(Measurement.measured_at).label("ended_at"),
+            func.count(Measurement.id).label("measurement_count"),
+            func.avg(Measurement.rsrp).label("avg_rsrp"),
+            func.avg(Measurement.sinr).label("avg_sinr"),
+            func.avg(Measurement.throughput_mbps).label("avg_throughput"),
+        )
+        .filter(Measurement.android_id == android_id)
+        .group_by(Measurement.session_id)
+        .order_by(func.max(Measurement.measured_at).desc())
+        .limit(limit)
+        .all()
+    )
 
     return [
         {
@@ -217,76 +213,103 @@ def propagation_map(
     network_type: str | None = None,
     resolution: int = 50,
 ):
-    allowed = {
-        "rsrp": Measurement.rsrp,
-        "rsrq": Measurement.rsrq,
-        "sinr": Measurement.sinr,
-        "throughput_mbps": Measurement.throughput_mbps,
-    }
-    metric_column = allowed.get(parameter, Measurement.rsrp)
+    allowed = {"rsrp", "rsrq", "sinr", "throughput_mbps"}
+    col = parameter if parameter in allowed else "rsrp"
 
-    query = db.query(
-        geo_func.ST_Y(geo_func.ST_GeomFromWKB(Measurement.location)).label("lat"),
-        geo_func.ST_X(geo_func.ST_GeomFromWKB(Measurement.location)).label("lon"),
-        metric_column.label("value"),
-    ).filter(Measurement.location.isnot(None), metric_column.isnot(None))
+    # filtry
+    filters = ["location IS NOT NULL", f"{col} IS NOT NULL"]
+    params = {"resolution": resolution - 1}
 
     if android_id:
-        query = query.filter(Measurement.android_id == android_id)
+        filters.append("android_id = :android_id")
+        params["android_id"] = android_id
     if session_id:
-        query = query.filter(Measurement.session_id == session_id)
+        filters.append("session_id = :session_id")
+        params["session_id"] = session_id
     if network_type:
-        query = query.filter(Measurement.network_type == network_type)
+        filters.append("network_type = :network_type")
+        params["network_type"] = network_type
 
-    rows = query.all()
+    where = " AND ".join(filters)
 
-    if len(rows) < 3:
+    bounds = db.execute(
+        text(
+            f"""
+        SELECT
+            ST_YMin(ST_Extent(location::geometry)) as lat_min,
+            ST_YMax(ST_Extent(location::geometry)) as lat_max,
+            ST_XMin(ST_Extent(location::geometry)) as lon_min,
+            ST_XMax(ST_Extent(location::geometry)) as lon_max
+        FROM measurements
+        WHERE {where}
+    """
+        ),
+        params,
+    ).first()
+
+    if not bounds or bounds.lat_min is None:
         return {"points": [], "bounds": None}
 
-    lats = np.array([r.lat for r in rows])
-    lons = np.array([r.lon for r in rows])
-    values = np.array([r.value for r in rows], dtype=float)
+    params.update(
+        {
+            "lat_min": bounds.lat_min - 0.001,
+            "lat_max": bounds.lat_max + 0.001,
+            "lon_min": bounds.lon_min - 0.001,
+            "lon_max": bounds.lon_max + 0.001,
+        }
+    )
 
-    lat_min, lat_max = lats.min(), lats.max()
-    lon_min, lon_max = lons.min(), lons.max()
-
-    # margin żeby mapa nie była obcięta
-    margin = 0.001
-    grid_lat, grid_lon = np.mgrid[
-        lat_min - margin : lat_max + margin : complex(resolution),
-        lon_min - margin : lon_max + margin : complex(resolution),
-    ]
-
-    grid_values = np.zeros_like(grid_lat)
-    power = 2
-    for i in range(resolution):
-        for j in range(resolution):
-            distances = np.sqrt((lats - grid_lat[i, j]) ** 2 + (lons - grid_lon[i, j]) ** 2)
-            if np.min(distances) < 1e-10:
-                grid_values[i, j] = values[np.argmin(distances)]
-            else:
-                weights = 1.0 / distances ** power
-                grid_values[i, j] = np.sum(weights * values) / np.sum(weights)
-
-
-    points = []
-    for i in range(resolution):
-        for j in range(resolution):
-            val = grid_values[i, j]
-            if not np.isnan(val):
-                points.append({
-                    "lat": float(grid_lat[i, j]),
-                    "lon": float(grid_lon[i, j]),
-                    "value": float(val),
-                })
+    result = db.execute(
+        text(
+            f"""
+        WITH grid AS (
+            SELECT
+                :lat_min + (:lat_max - :lat_min) * i / :resolution AS lat,
+                :lon_min + (:lon_max - :lon_min) * j / :resolution AS lon
+            FROM
+                generate_series(0, :resolution) AS i,
+                generate_series(0, :resolution) AS j
+        ),
+        measurements_filtered AS (
+            SELECT
+                {col} AS value,
+                location
+            FROM measurements
+            WHERE {where}
+        ),
+        idw AS (
+            SELECT
+                g.lat,
+                g.lon,
+                SUM(m.value / POWER(NULLIF(ST_Distance(
+                    ST_SetSRID(ST_MakePoint(g.lon, g.lat), 4326)::geography,
+                    m.location
+                ), 0), 2)) /
+                SUM(1.0 / POWER(NULLIF(ST_Distance(
+                    ST_SetSRID(ST_MakePoint(g.lon, g.lat), 4326)::geography,
+                    m.location
+                ), 0), 2)) AS value
+            FROM grid g
+            CROSS JOIN measurements_filtered m
+            GROUP BY g.lat, g.lon
+        )
+        SELECT lat, lon, value FROM idw
+        WHERE value IS NOT NULL
+        ORDER BY lat, lon
+    """
+        ),
+        params,
+    ).all()
 
     return {
-        "points": points,
+        "points": [
+            {"lat": float(r.lat), "lon": float(r.lon), "value": float(r.value)} for r in result
+        ],
         "bounds": {
-            "lat_min": float(lat_min),
-            "lat_max": float(lat_max),
-            "lon_min": float(lon_min),
-            "lon_max": float(lon_max),
+            "lat_min": float(bounds.lat_min),
+            "lat_max": float(bounds.lat_max),
+            "lon_min": float(bounds.lon_min),
+            "lon_max": float(bounds.lon_max),
         },
         "parameter": parameter,
     }
