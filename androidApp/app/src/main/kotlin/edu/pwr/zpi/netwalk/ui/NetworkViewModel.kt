@@ -79,6 +79,11 @@ class NetworkViewModel(
 
     private val queuedMeasurements = mutableListOf<MeasurementItem>()
 
+    val rsrpHistory = mutableStateListOf<Float>()
+    val rsrqHistory = mutableStateListOf<Float>()
+    val sinrHistory = mutableStateListOf<Float>()
+    private val signalPointLimit = 50
+
     fun requestIperfNow() {
         forceIperfNow = true
         lastTestTimeline = emptyList()
@@ -169,6 +174,29 @@ class NetworkViewModel(
         }
     }
 
+    private fun updateSignalHistory(networkData: NetworkInfoData?) {
+        val nrServing = networkData?.nrCells?.firstOrNull { it.isServing }
+        val lteServing = networkData?.lteCells?.firstOrNull { it.isServing }
+
+        val currentRsrp = nrServing?.ssRsrp?.toFloat() ?: lteServing?.rsrp?.toFloat()
+        if (currentRsrp != null) {
+            if (rsrpHistory.size >= signalPointLimit) rsrpHistory.removeAt(0)
+            rsrpHistory.add(currentRsrp)
+        }
+
+        val currentRsrq = nrServing?.ssRsrq?.toFloat() ?: lteServing?.rsrq?.toFloat()
+        if (currentRsrq != null) {
+            if (rsrqHistory.size >= signalPointLimit) rsrqHistory.removeAt(0)
+            rsrqHistory.add(currentRsrq)
+        }
+
+        val currentSinr = nrServing?.ssSinr?.toFloat() ?: lteServing?.sinr?.toFloat()
+        if (currentSinr != null) {
+            if (sinrHistory.size >= signalPointLimit) sinrHistory.removeAt(0)
+            sinrHistory.add(currentSinr)
+        }
+    }
+
     private val collector = DataCollector(
         scope = viewModelScope,
         getIperfCommand = { iperfCommand.value },
@@ -177,6 +205,7 @@ class NetworkViewModel(
             uiStateNetwork = network
             uiStateLocation = location
             uiStateSystem = system
+            updateSignalHistory(network)
         },
         sendRequest = { request ->
 
