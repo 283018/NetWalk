@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
@@ -28,6 +29,7 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
+import edu.pwr.zpi.netwalk.ui.ChartsScreen
 import edu.pwr.zpi.netwalk.ui.IperfLogScreen
 import edu.pwr.zpi.netwalk.ui.NetworkInfoScreen
 import edu.pwr.zpi.netwalk.ui.NetworkViewModel
@@ -42,6 +44,8 @@ sealed class BottomNavItem(
     object Network : BottomNavItem("network", "Network", Icons.Default.Info)
 
     object Iperf : BottomNavItem("iperf", "iPerf", Icons.Default.Speed)
+
+    object Charts : BottomNavItem("charts", "Charts", Icons.Default.BarChart)
 }
 
 class MainActivity : ComponentActivity() {
@@ -71,6 +75,7 @@ class MainActivity : ComponentActivity() {
                 val items = listOf(
                     BottomNavItem.Network,
                     BottomNavItem.Iperf,
+                    BottomNavItem.Charts,
                 )
 
                 Scaffold(
@@ -121,6 +126,12 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(BottomNavItem.Iperf.route) {
                             IperfLogScreen(
+                                viewModel = viewModel,
+                            )
+                        }
+
+                        composable(BottomNavItem.Charts.route) {
+                            ChartsScreen(
                                 viewModel = viewModel,
                             )
                         }
