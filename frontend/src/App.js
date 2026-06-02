@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./App.css";
 import logo from "./Logo_dark_no_bg.png";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://localhost:8000";
 const FALLBACK_CENTER = [51.110556, 17.060556];
 
 const EMPTY_KPI = {
