@@ -140,10 +140,16 @@ fun SignalChart(
 
     val maxVal = history.maxOf { it }
     val minVal = history.minOf { it }
-    val range = (maxVal - minVal).coerceAtLeast(1f)
 
-    val yMax = maxVal + (range * 0.1f)
-    val yMin = minVal - (range * 0.1f)
+    val currentValue = history.last()
+
+    val (yMin, yMax) =
+        if (maxVal == minVal) {
+            currentValue - 4f to currentValue + 4f
+        } else {
+            val range = maxVal - minVal
+            (minVal - range * 0.1f) to (maxVal + range * 0.1f)
+        }
 
     Canvas(
         modifier = modifier
