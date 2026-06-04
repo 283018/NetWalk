@@ -13,6 +13,8 @@ import edu.pwr.zpi.netwalk.collector.DataCollector
 import edu.pwr.zpi.netwalk.fetcher.MeasurementItem
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
+import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
+import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
@@ -63,6 +65,9 @@ class NetworkViewModel(
     var forceIperfNow by mutableStateOf(false)
         private set
 
+    var lastTestTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+        private set
+
     private var sessionId: String = "" // only passive collection for ui displaying
     private var passiveJobStarted = false
 
@@ -74,8 +79,14 @@ class NetworkViewModel(
 
     private val queuedMeasurements = mutableListOf<MeasurementItem>()
 
+    val rsrpHistory = mutableStateListOf<Float>()
+    val rsrqHistory = mutableStateListOf<Float>()
+    val sinrHistory = mutableStateListOf<Float>()
+    private val signalPointLimit = 50
+
     fun requestIperfNow() {
         forceIperfNow = true
+        lastTestTimeline = emptyList()
     }
 
     private val flushMutex = Mutex()
@@ -163,6 +174,29 @@ class NetworkViewModel(
         }
     }
 
+    private fun updateSignalHistory(networkData: NetworkInfoData?) {
+        val nrServing = networkData?.nrCells?.firstOrNull { it.isServing }
+        val lteServing = networkData?.lteCells?.firstOrNull { it.isServing }
+
+        val currentRsrp = nrServing?.ssRsrp?.toFloat() ?: lteServing?.rsrp?.toFloat()
+        if (currentRsrp != null) {
+            if (rsrpHistory.size >= signalPointLimit) rsrpHistory.removeAt(0)
+            rsrpHistory.add(currentRsrp)
+        }
+
+        val currentRsrq = nrServing?.ssRsrq?.toFloat() ?: lteServing?.rsrq?.toFloat()
+        if (currentRsrq != null) {
+            if (rsrqHistory.size >= signalPointLimit) rsrqHistory.removeAt(0)
+            rsrqHistory.add(currentRsrq)
+        }
+
+        val currentSinr = nrServing?.ssSinr?.toFloat() ?: lteServing?.sinr?.toFloat()
+        if (currentSinr != null) {
+            if (sinrHistory.size >= signalPointLimit) sinrHistory.removeAt(0)
+            sinrHistory.add(currentSinr)
+        }
+    }
+
     private val collector = DataCollector(
         scope = viewModelScope,
         getIperfCommand = { iperfCommand.value },
@@ -171,6 +205,7 @@ class NetworkViewModel(
             uiStateNetwork = network
             uiStateLocation = location
             uiStateSystem = system
+            updateSignalHistory(network)
         },
         sendRequest = { request ->
 
@@ -209,6 +244,11 @@ class NetworkViewModel(
         },
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
+        onIperfRawResult = { rawJson ->
+            parseIperfJsonSafe(rawJson)?.let { parsedData ->
+                lastTestTimeline = parsedData.throughputTimeline
+            }
+        },
     )
 
     init {
