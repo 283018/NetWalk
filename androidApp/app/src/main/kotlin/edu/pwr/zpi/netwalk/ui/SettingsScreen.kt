@@ -203,6 +203,7 @@ fun SettingStringField(
     placeholder: String,
     isValid: (String) -> Boolean = { true },
     errorText: String = "Invalid input",
+    enabled: Boolean = true,
 ) {
     val isError = value.isNotEmpty() && !isValid(value)
 
@@ -214,6 +215,7 @@ fun SettingStringField(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         isError = isError,
+        enabled = enabled,
         supportingText = {
             if (isError) Text(errorText)
         },
@@ -227,6 +229,10 @@ fun SettingStringField(
             unfocusedTextColor = Color.White,
             focusedBorderColor = Color.White,
             unfocusedBorderColor = Color.Gray,
+            disabledTextColor = Color.Gray.copy(alpha = 0.5f),
+            disabledBorderColor = Color.DarkGray.copy(alpha = 0.3f),
+            disabledLabelColor = Color.Gray.copy(alpha = 0.5f),
+            disabledContainerColor = Color.Gray.copy(alpha = 0.1f),
             errorBorderColor = Color.Red,
             errorLabelColor = Color.Red,
         ),
