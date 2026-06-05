@@ -10,8 +10,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -130,6 +135,8 @@ fun SettingsScreen(
             value = editableSettings.packageSize,
             onValueChange = { editableSettings = editableSettings.copy(packageSize = it) },
             placeholder = viewModel.defaults.packageSize,
+            enabled = !editableSettings.useUdp,
+            explanationText = "Applied only then using TCP",
         )
 
         SettingStringField(
@@ -137,6 +144,8 @@ fun SettingsScreen(
             value = editableSettings.bufferLength,
             onValueChange = { editableSettings = editableSettings.copy(bufferLength = it) },
             placeholder = viewModel.defaults.bufferLength,
+            enabled = editableSettings.useUdp,
+            explanationText = "Applied only then using UDP",
         )
 
         SettingStringField(
@@ -144,8 +153,11 @@ fun SettingsScreen(
             value = editableSettings.targetBandwidth,
             onValueChange = { editableSettings = editableSettings.copy(targetBandwidth = it) },
             placeholder = viewModel.defaults.targetBandwidth,
+            enabled = editableSettings.useUdp,
+            explanationText = "Applied only then using UDP",
         )
 
+        var showSendImmediatelyExplanation by remember { mutableStateOf(false) }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -160,6 +172,28 @@ fun SettingsScreen(
                 text = "Send immediately",
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 6.dp),
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            IconButton(onClick = { showSendImmediatelyExplanation = true }) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Explanation for Send Immediately",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        if (showSendImmediatelyExplanation) {
+            AlertDialog(
+                onDismissRequest = { showSendImmediatelyExplanation = false },
+                title = { Text("Send immediately") },
+                text = { Text("Send measurements immediately, without queueing.") },
+                confirmButton = {
+                    TextButton(onClick = { showSendImmediatelyExplanation = false }) {
+                        Text("OK")
+                    }
+                },
             )
         }
 
@@ -204,8 +238,11 @@ fun SettingStringField(
     isValid: (String) -> Boolean = { true },
     errorText: String = "Invalid input",
     enabled: Boolean = true,
+    explanationText: String? = null,
 ) {
     val isError = value.isNotEmpty() && !isValid(value)
+
+    var showExplanation by remember { mutableStateOf(false) }
 
     OutlinedTextField(
         value = value,
@@ -216,6 +253,19 @@ fun SettingStringField(
         singleLine = true,
         isError = isError,
         enabled = enabled,
+        trailingIcon = if (explanationText != null) {
+            {
+                IconButton(onClick = { showExplanation = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Info",
+                        tint = if (enabled) MaterialTheme.colorScheme.primary else Color.Gray,
+                    )
+                }
+            }
+        } else {
+            null
+        },
         supportingText = {
             if (isError) Text(errorText)
         },
@@ -237,6 +287,19 @@ fun SettingStringField(
             errorLabelColor = Color.Red,
         ),
     )
+
+    if (showExplanation && explanationText != null) {
+        AlertDialog(
+            onDismissRequest = { showExplanation = false },
+            title = { Text(label) },
+            text = { Text(explanationText) },
+            confirmButton = {
+                TextButton(onClick = { showExplanation = false }) {
+                    Text("OK")
+                }
+            },
+        )
+    }
 }
 
 private fun isValidUrl(url: String): Boolean =
