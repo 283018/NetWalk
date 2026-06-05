@@ -107,12 +107,6 @@ fun SettingsScreen(
             onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
             placeholder = viewModel.defaults.iperfParallel,
         )
-        SettingStringField(
-            label = "Iperf max package size (-M)",
-            value = editableSettings.packageSize,
-            onValueChange = { editableSettings = editableSettings.copy(packageSize = it) },
-            placeholder = viewModel.defaults.packageSize,
-        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -130,6 +124,27 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 6.dp),
             )
         }
+
+        SettingStringField(
+            label = "Iperf max package size (-M)",
+            value = editableSettings.packageSize,
+            onValueChange = { editableSettings = editableSettings.copy(packageSize = it) },
+            placeholder = viewModel.defaults.packageSize,
+        )
+
+        SettingStringField(
+            label = "Iperf buffer length (-l)",
+            value = editableSettings.bufferLength,
+            onValueChange = { editableSettings = editableSettings.copy(bufferLength = it) },
+            placeholder = viewModel.defaults.bufferLength,
+        )
+
+        SettingStringField(
+            label = "Iperf target bandwidth (-b)",
+            value = editableSettings.targetBandwidth,
+            onValueChange = { editableSettings = editableSettings.copy(targetBandwidth = it) },
+            placeholder = viewModel.defaults.targetBandwidth,
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

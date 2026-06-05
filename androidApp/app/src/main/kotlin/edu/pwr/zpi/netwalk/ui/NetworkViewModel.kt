@@ -3,6 +3,7 @@ package edu.pwr.zpi.netwalk.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -44,6 +46,8 @@ data class NetworkSettingsState(
     val iperfTime: String,
     val iperfParallel: String,
     val packageSize: String,
+    val bufferLength: String,
+    val targetBandwidth: String,
     val useUdp: Boolean,
     val sendImmediately: Boolean,
 )
@@ -101,8 +105,10 @@ class NetworkViewModel(
         settings.iperfPort.flow,
         settings.iperfTime.flow,
         settings.iperfParallel.flow,
-        settings.packageSize.flow,
         settings.useUdp.flow,
+        settings.packageSize.flow,
+        settings.targetBandwidth.flow,
+        settings.bufferLength.flow,
         settings.sendImmediately.flow,
     ) { values: Array<Any?> ->
         NetworkSettingsState(
@@ -111,9 +117,11 @@ class NetworkViewModel(
             iperfPort = values[2] as String,
             iperfTime = values[3] as String,
             iperfParallel = values[4] as String,
-            packageSize = values[5] as String,
-            useUdp = values[6] as Boolean,
-            sendImmediately = values[7] as Boolean,
+            useUdp = values[5] as Boolean,
+            packageSize = values[6] as String,
+            targetBandwidth = values[7] as String,
+            bufferLength = values[8] as String,
+            sendImmediately = values[9] as Boolean,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -125,6 +133,8 @@ class NetworkViewModel(
             settings.iperfTime.defaultValue,
             settings.iperfParallel.defaultValue,
             settings.packageSize.defaultValue,
+            settings.targetBandwidth.defaultValue,
+            settings.bufferLength.defaultValue,
             settings.useUdp.defaultValue,
             settings.sendImmediately.defaultValue,
         ),
@@ -138,6 +148,8 @@ class NetworkViewModel(
             settings.iperfTime.update(state.iperfTime)
             settings.iperfParallel.update(state.iperfParallel)
             settings.packageSize.update(state.packageSize)
+            settings.targetBandwidth.update(state.targetBandwidth)
+            settings.bufferLength.update(state.bufferLength)
             settings.useUdp.update(state.useUdp)
             settings.sendImmediately.update(state.sendImmediately)
         }
@@ -150,6 +162,8 @@ class NetworkViewModel(
         settings.iperfTime.defaultValue,
         settings.iperfParallel.defaultValue,
         settings.packageSize.defaultValue,
+        settings.targetBandwidth.defaultValue,
+        settings.bufferLength.defaultValue,
         settings.useUdp.defaultValue,
         settings.sendImmediately.defaultValue,
     )
@@ -339,6 +353,19 @@ class NetworkViewModel(
                     add(state.iperfPort)
                 }
 
+                if (state.useUdp) {
+                    add("-u")
+
+                    add("-l")
+                    add(state.bufferLength)
+
+                    add("-b")
+                    add(state.targetBandwidth)
+                } else {
+                    add("-M")
+                    add(state.packageSize)
+                }
+
                 add("-t")
                 add(state.iperfTime)
 
@@ -347,15 +374,10 @@ class NetworkViewModel(
                     add(state.iperfParallel)
                 }
 
-                if (state.useUdp) {
-                    add("-u")
-                }
-
-                add("-M")
-                add(state.packageSize)
-
                 add("--json")
             }.toTypedArray()
+        }.onEach { commandArray: Array<String> ->
+            Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
