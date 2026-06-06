@@ -74,15 +74,19 @@ data class ThroughputPoint(
 )
 
 data class IperfParsed(
+    val isUdp: Boolean,
     val throughputMbps: Double?,
-    val meanRtt: Double?,
-    val minRtt: Double?,
+    val meanRtt: Double?, // TCP specific
+    val minRtt: Double?, // TCP specific
     val maxRtt: Double?,
+    val jitterMs: Double?, // directly from UDP
+    val lostPackets: Long?, // UDP specific
+    val lostPercent: Double?,
     val hostCpuTotal: Double?,
     val remoteCpuTotal: Double?,
     val startTime: String?,
     val testDuration: Double?,
-    val retransmits: Long?,
+    val retransmits: Long?, // TCP specific
     val throughputTimeline: List<ThroughputPoint>,
 )
 
@@ -104,6 +108,9 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         val senderStats = streamData?.get("sender")?.jsonObject
 
         val timestamp = start?.get("timestamp")?.jsonObject
+        val testStart = start?.get("test_start")?.jsonObject
+        val protocol = testStart?.get("protocol")?.jsonPrimitive?.content
+        val isUdp = protocol?.equals("UDP", ignoreCase = true) == true
 
         val timelinePoints = mutableListOf<ThroughputPoint>()
         val intervals = json["intervals"]?.jsonArray
@@ -126,23 +133,26 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         }
 
         IperfParsed(
+            isUdp = isUdp,
             // Throughput mbps
             throughputMbps = sumReceived // f flag foes not affect json output
                 ?.get("bits_per_second")
                 ?.jsonPrimitive
                 ?.doubleOrNull
                 ?.div(1_000_000.0),
-            // latency and jitter
+            // TCP latency and jitter
             meanRtt = senderStats?.get("mean_rtt")?.jsonPrimitive?.doubleOrNull,
             minRtt = senderStats?.get("min_rtt")?.jsonPrimitive?.doubleOrNull,
             maxRtt = senderStats?.get("max_rtt")?.jsonPrimitive?.doubleOrNull,
+            // UDP jitter and packet loss
+            jitterMs = sumReceived?.get("jitter_ms")?.jsonPrimitive?.doubleOrNull,
+            lostPackets = sumReceived?.get("lost_packets")?.jsonPrimitive?.longOrNull,
+            lostPercent = sumReceived?.get("lost_percent")?.jsonPrimitive?.doubleOrNull,
             // cpu utilization
             hostCpuTotal = cpuUtil?.get("host_total")?.jsonPrimitive?.doubleOrNull,
             remoteCpuTotal = cpuUtil?.get("remote_total")?.jsonPrimitive?.doubleOrNull,
             // timing
-            startTime = start
-                ?.get("timestamp")
-                ?.jsonObject
+            startTime = timestamp
                 ?.get("time")
                 ?.jsonPrimitive
                 ?.contentOrNull,
