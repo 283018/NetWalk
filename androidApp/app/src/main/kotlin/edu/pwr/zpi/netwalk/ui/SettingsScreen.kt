@@ -1,5 +1,6 @@
 package edu.pwr.zpi.netwalk.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -207,12 +209,14 @@ fun SettingsScreen(
             )
         }
 
+        val context = LocalContext.current
+
         Button(
             onClick = {
                 scope.launch {
                     viewModel.saveAllSettings(editableSettings)
 
-                    saveStatus = "Saved"
+                    Toast.makeText(context, "Saved", Toast.LENGTH_SHORT).show()
                 }
             },
             modifier = Modifier.align(Alignment.End),
