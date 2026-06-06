@@ -54,6 +54,9 @@ data class MeasurementItem(
     val host_cpu: Double? = null,
     val remote_cpu: Double? = null,
     val retransmits: Long? = null,
+    val is_udp: Boolean? = null,
+    val lost_packets: Long? = null,
+    val lost_percent: Double? = null,
     val iperf_json: String? = null,
 ) {
     constructor (
@@ -103,6 +106,9 @@ data class MeasurementItem(
         host_cpu = iperf?.hostCpuTotal,
         remote_cpu = iperf?.remoteCpuTotal,
         retransmits = iperf?.retransmits,
+        is_udp = iperf?.isUdp,
+        lost_packets = iperf?.lostPackets,
+        lost_percent = iperf?.lostPercent,
         iperf_json = iperfRaw, // optional, normally empty
     )
 
