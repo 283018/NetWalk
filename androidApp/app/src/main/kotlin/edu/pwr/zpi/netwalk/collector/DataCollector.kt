@@ -29,7 +29,7 @@ class DataCollector(
     private val sendRequest: suspend (MeasurementRequest) -> Unit,
     private val shouldForceIperf: () -> Boolean,
     private val onForceIperfHandled: () -> Unit,
-    private val onIperfRawResult: (String) -> Unit,
+    private val onIperfRawResult: (String?, String?) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
@@ -77,23 +77,28 @@ class DataCollector(
                             onForceIperfHandled()
                         }
 
-                        val iperfResult = if (shouldRunIperf) {
+                        val (iperfUploadResult, iperfDownloadResult) = if (shouldRunIperf) {
                             lastIperfTime = now
                             try {
                                 withContext(Dispatchers.IO) {
-                                    withTimeoutOrNull(currentTimout) {
+                                    // TODO: add -R argument
+                                    val ulResuls = withTimeoutOrNull(currentTimout) {
                                         IperfRunner.runIperfOnce(getIperfCommand())
                                     }
+                                    val dlResult = withTimeoutOrNull(currentTimout) {
+                                        IperfRunner.runIperfOnce(getIperfCommand())
+                                    }
+                                    Pair(ulResuls, dlResult)
                                 }
                             } catch (e: Exception) {
-                                null
+                                Pair(null, null)
                             }
                         } else {
-                            null
+                            Pair(null, null)
                         }
 
-                        if (iperfResult != null) {
-                            onIperfRawResult(iperfResult)
+                        if (iperfUploadResult != null || iperfDownloadResult != null) {
+                            onIperfRawResult(iperfUploadResult, iperfDownloadResult)
                         }
 
                         val request = networkData.toMeasurementsRequest(
@@ -101,7 +106,8 @@ class DataCollector(
                             latitude = locationData.first,
                             longitude = locationData.second,
                             systemData = systemData,
-                            iperfRaw = iperfResult,
+                            iperfUlRaw = iperfUploadResult,
+                            iperfDlRaw = iperfDownloadResult,
                             measuredAtNow = now,
                         )
 
