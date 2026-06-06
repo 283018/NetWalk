@@ -105,12 +105,16 @@ fun SettingsScreen(
             value = editableSettings.iperfTime,
             onValueChange = { editableSettings = editableSettings.copy(iperfTime = it) },
             placeholder = viewModel.defaults.iperfTime,
+            isValid = ::isValidPositiveIntOrEmpty,
+            errorText = "Must be a positive number.",
         )
         SettingStringField(
             label = "Iperf Streams (-P)",
             value = editableSettings.iperfParallel,
             onValueChange = { editableSettings = editableSettings.copy(iperfParallel = it) },
             placeholder = viewModel.defaults.iperfParallel,
+            isValid = ::isValidPositiveIntOrEmpty,
+            errorText = "Must be a positive number.",
         )
 
         Row(
@@ -137,6 +141,8 @@ fun SettingsScreen(
             placeholder = viewModel.defaults.packageSize,
             enabled = !editableSettings.useUdp,
             explanationText = "Applied only then using TCP",
+            isValid = ::isValidSizeFormatOrEmpty,
+            errorText = "Invalid size (e.g., 500, 1K).",
         )
 
         SettingStringField(
@@ -146,6 +152,8 @@ fun SettingsScreen(
             placeholder = viewModel.defaults.bufferLength,
             enabled = editableSettings.useUdp,
             explanationText = "Applied only then using UDP",
+            isValid = ::isValidSizeFormatOrEmpty,
+            errorText = "Invalid size (e.g., 500, 1K).",
         )
 
         SettingStringField(
@@ -155,6 +163,8 @@ fun SettingsScreen(
             placeholder = viewModel.defaults.targetBandwidth,
             enabled = editableSettings.useUdp,
             explanationText = "Applied only then using UDP",
+            isValid = ::isValidSizeFormatOrEmpty,
+            errorText = "Invalid size (e.g., 500, 1K).",
         )
 
         var showSendImmediatelyExplanation by remember { mutableStateOf(false) }
@@ -323,4 +333,16 @@ private fun isValidPort(port: String): Boolean {
     if (port.isEmpty()) return true // allow empty port if using public iperf server
     val portInt = port.toIntOrNull() ?: return false
     return portInt in 1..65535
+}
+
+private fun isValidPositiveIntOrEmpty(value: String): Boolean {
+    if (value.isEmpty()) return true
+    val intVal = value.toIntOrNull() ?: return false
+    return intVal > 0
+}
+
+private fun isValidSizeFormatOrEmpty(value: String): Boolean {
+    if (value.isEmpty()) return true
+    val regex = """^\d+(\.\d+)?[kKmMgG]?$""".toRegex()
+    return regex.matches(value)
 }
