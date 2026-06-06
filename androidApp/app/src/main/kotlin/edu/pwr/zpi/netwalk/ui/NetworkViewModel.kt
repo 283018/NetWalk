@@ -236,7 +236,7 @@ class NetworkViewModel(
         sendRequest = { request ->
 
             request.measurements.forEach { item ->
-                if (item.throughput_mbps != null || item.mean_rtt != null || item.retransmits != null) {
+                if (item.throughput_mbps != null || item.test_duration != null || item.is_udp != null) {
                     iperfLogEntries.add(
                         IperfLogEntry(
                             timestamp = item.measured_at,
