@@ -236,13 +236,14 @@ class NetworkViewModel(
         sendRequest = { request ->
 
             request.measurements.forEach { item ->
-                if (item.throughput_mbps != null || item.test_duration != null || item.is_udp != null) {
+                if (item.test_duration != null || item.is_udp != null) {
                     iperfLogEntries.add(
+                        // TODO: actualize ui for up/down
                         IperfLogEntry(
                             timestamp = item.measured_at,
-                            throughputMbps = item.throughput_mbps,
-                            meanRtt = item.mean_rtt,
-                            retransmits = item.retransmits,
+                            throughputMbps = item.dl_throughput_mbps,
+                            meanRtt = item.dl_mean_rtt,
+                            retransmits = item.dl_retransmits,
                         ),
                     )
                 }
@@ -270,9 +271,12 @@ class NetworkViewModel(
         },
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
-        onIperfRawResult = { rawJson ->
-            parseIperfJsonSafe(rawJson)?.let { parsedData ->
-                lastTestTimeline = parsedData.throughputTimeline
+        onIperfRawResult = { ulRawJson, dlRawJson ->
+            val activeJson = dlRawJson ?: ulRawJson
+            if (activeJson != null) {
+                parseIperfJsonSafe(activeJson)?.let { parsedData ->
+                    lastTestTimeline = parsedData.throughputTimeline
+                }
             }
         },
     )
