@@ -75,6 +75,9 @@ class NetworkViewModel(
     var lastUlTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
         private set
 
+    var isServerConnected by mutableStateOf<Boolean?>(null)
+        private set
+
     private var sessionId: String = "" // only passive collection for ui displaying
     private var passiveJobStarted = false
 
@@ -234,6 +237,19 @@ class NetworkViewModel(
             uiStateLocation = location
             uiStateSystem = system
             updateSignalHistory(network)
+
+            viewModelScope.launch {
+                client?.let { networkClient ->
+                    networkClient
+                        .checkHealth()
+                        .onSuccess { isServerConnected = true }
+                        .onFailure {
+                            isServerConnected = false
+                        }
+                } ?: run {
+                    isServerConnected = false
+                }
+            }
         },
         sendRequest = { request ->
 
