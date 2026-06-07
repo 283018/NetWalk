@@ -23,7 +23,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class DataCollector(
     private val scope: CoroutineScope,
-    private val getIperfCommand: () -> Array<String>,
+    private val getIperfCommand: (isDownload: Boolean) -> Array<String>,
     private val onStatusUpdate: (String) -> Unit,
     private val onPassiveDataUpdate: (NetworkInfoData?, Pair<Double?, Double?>, SystemData?) -> Unit,
     private val sendRequest: suspend (MeasurementRequest) -> Unit,
@@ -81,12 +81,12 @@ class DataCollector(
                             lastIperfTime = now
                             try {
                                 withContext(Dispatchers.IO) {
-                                    // TODO: add -R argument
                                     val ulResuls = withTimeoutOrNull(currentTimout) {
-                                        IperfRunner.runIperfOnce(getIperfCommand())
+                                        // named args are prohibited in labdas
+                                        IperfRunner.runIperfOnce(getIperfCommand(false)) // isDownload=false
                                     }
                                     val dlResult = withTimeoutOrNull(currentTimout) {
-                                        IperfRunner.runIperfOnce(getIperfCommand())
+                                        IperfRunner.runIperfOnce(getIperfCommand(true)) // isDownload=true
                                     }
                                     Pair(ulResuls, dlResult)
                                 }

@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -225,7 +224,7 @@ class NetworkViewModel(
 
     private val collector = DataCollector(
         scope = viewModelScope,
-        getIperfCommand = { iperfCommand.value },
+        getIperfCommand = { isDownload -> iperfCommand(isDownload) },
         onStatusUpdate = { status -> lastStatus = status },
         onPassiveDataUpdate = { network, location, system ->
             uiStateNetwork = network
@@ -345,46 +344,51 @@ class NetworkViewModel(
         }
     }
 
-    val iperfCommand = uiSettingsState
-        .map { state ->
-            buildList {
-                add("iperf3")
-                add("-c")
-                add(state.iperfIp)
+    private fun iperfCommand(isDownload: Boolean): Array<String> {
+        val state = uiSettingsState.value
 
-                if (state.iperfPort.isNotBlank()) {
-                    add("-p")
-                    add(state.iperfPort)
-                }
+        val commandArray = buildList {
+            add("iperf3")
+            add("-c")
+            add(state.iperfIp)
 
-                if (state.useUdp) {
-                    add("-u")
+            if (state.iperfPort.isNotBlank()) {
+                add("-p")
+                add(state.iperfPort)
+            }
 
-                    add("-l")
-                    add(state.bufferLength)
+            if (state.useUdp) {
+                add("-u")
 
-                    add("-b")
-                    add(state.targetBandwidth)
-                } else {
-                    add("-M")
-                    add(state.packageSize)
-                }
+                add("-l")
+                add(state.bufferLength)
 
-                add("-t")
-                add(state.iperfTime)
+                add("-b")
+                add(state.targetBandwidth)
+            } else {
+                add("-M")
+                add(state.packageSize)
+            }
 
-                if (state.iperfParallel.isNotBlank()) {
-                    add("-P")
-                    add(state.iperfParallel)
-                }
+            add("-t")
+            add(state.iperfTime)
 
-                add("--json")
-            }.toTypedArray()
-        }.onEach { commandArray: Array<String> ->
-            Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = arrayOf("iperf3"), // temporary fallback on init, reconstructed form default arguments later
-        )
+            if (state.iperfParallel.isNotBlank()) {
+                add("-P")
+                add(state.iperfParallel)
+            }
+
+            if (isDownload) {
+                add("-R")
+            }
+
+            add("--json")
+        }.toTypedArray()
+
+        // temporary fallback on init, reconstructed form default arguments later
+        val finalArray = if (state.iperfIp.isBlank()) arrayOf("iperf3") else commandArray
+        Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
+
+        return finalArray
+    }
 }
