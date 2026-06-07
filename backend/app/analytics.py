@@ -320,3 +320,71 @@ def propagation_map(
         },
         "parameter": parameter,
     }
+
+
+def get_high_cpu_threshold(db: Session):
+    """Oblicz próg 'wysokiego CPU' na podstawie percentyla"""
+    result = db.query(
+        func.percentile_cont(0.75).within_group(Measurement.host_cpu)
+    ).scalar()
+    return float(result) if result else 50.0
+
+
+def measurements_by_cpu_category(db: Session, threshold: float | None = None):
+    """Zwróć pomiary pogrupowane: normalne, wysokie CPU"""
+    if threshold is None:
+        threshold = get_high_cpu_threshold(db)
+    
+    normal = db.query(Measurement).filter(Measurement.host_cpu < threshold).count()
+    high = db.query(Measurement).filter(Measurement.host_cpu >= threshold).count()
+    
+    return {"normal": normal, "high": high, "threshold": threshold}
+
+
+def get_uplink_downlink_stats(db: Session, session_id: str | None = None):
+    """Statystyki oddzielnie dla UL i DL"""
+    query = db.query(Measurement)
+    if session_id:
+        query = query.filter(Measurement.session_id == session_id)
+    
+    result = query.with_entities(
+        func.avg(Measurement.dl_throughput_mbps).label("dl_throughput"),
+        func.avg(Measurement.dl_latency_ms).label("dl_latency"),
+        func.avg(Measurement.dl_jitter_ms).label("dl_jitter"),
+        func.sum(Measurement.dl_lost_packets).label("dl_lost_packets"),
+        func.avg(Measurement.ul_throughput_mbps).label("ul_throughput"),
+        func.avg(Measurement.ul_latency_ms).label("ul_latency"),
+        func.avg(Measurement.ul_jitter_ms).label("ul_jitter"),
+        func.sum(Measurement.ul_lost_packets).label("ul_lost_packets"),
+    ).first()
+    
+    if not result:
+        return {
+            "downlink": {
+                "throughput": None,
+                "latency": None,
+                "jitter": None,
+                "lost_packets": None,
+            },
+            "uplink": {
+                "throughput": None,
+                "latency": None,
+                "jitter": None,
+                "lost_packets": None,
+            }
+        }
+    
+    return {
+        "downlink": {
+            "throughput": _to_float(result.dl_throughput),
+            "latency": _to_float(result.dl_latency),
+            "jitter": _to_float(result.dl_jitter),
+            "lost_packets": int(result.dl_lost_packets) if result.dl_lost_packets is not None else None,
+        },
+        "uplink": {
+            "throughput": _to_float(result.ul_throughput),
+            "latency": _to_float(result.ul_latency),
+            "jitter": _to_float(result.ul_jitter),
+            "lost_packets": int(result.ul_lost_packets) if result.ul_lost_packets is not None else None,
+        }
+    }

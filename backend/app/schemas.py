@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 from functools import cached_property
-from typing import cast
+from typing import cast, Generic, TypeVar
 from uuid import UUID
 
 from geoalchemy2.elements import WKBElement
@@ -13,7 +13,7 @@ LAT_RANGE = 90
 LON_RANGE = 180
 
 
-class Protocol(str, StrEnum):
+class Protocol(StrEnum):
     TCP = "TCP"
     UDP = "UDP"
     MIXED = "MIXED"
@@ -67,6 +67,9 @@ class MeasurementBase(BaseModel):
     dl_retransmits: int | None = None
     dl_lost_packets: int | None = None
     dl_lost_percent: float | None = None
+    test_carrier_mode: str | None = None
+    cells_involved: str | None = None
+    primary_cell_id: str | None = None
 
 
 class MeasurementCreate(MeasurementBase):
@@ -180,7 +183,7 @@ class MeasurementResponse(MeasurementBase):
 
     model_config = ConfigDict(
         from_attributes=True,
-        arbitrary_types_allowed=True,
+        arbitrary_types_allowed=True
     )
 
     @computed_field
@@ -258,3 +261,11 @@ class StatisticsResponse(BaseModel):
 class SessionResponse(BaseModel):
     session_id: UUID
     started_at: datetime
+
+T = TypeVar("T")
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    skip: int
+    limit: int

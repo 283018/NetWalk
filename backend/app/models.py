@@ -80,11 +80,17 @@ class Measurement(Base):
     dl_lost_packets = Column(Integer)
     dl_lost_percent = Column(Float)
 
+    # dodatkowe informacje o teście
+    test_carrier_mode = Column(String)
+    cells_involved = Column(String)
+    primary_cell_id = Column(String)
+
     # indeksy do wydajności
     __table_args__ = (
         Index("ids_measurements_location", location, postgresql_using="gist"),
         Index("idx_measurements_time", measured_at),
         Index("idx_measurement_cell", cell_id),
+        Index("idx_measurements_cpu", host_cpu),
     )
 
     @hybrid_property
