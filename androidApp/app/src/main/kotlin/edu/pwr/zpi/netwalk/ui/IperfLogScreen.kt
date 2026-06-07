@@ -37,7 +37,8 @@ import edu.pwr.zpi.netwalk.ui.SettingsScreen
 
 data class IperfLogEntry(
     val timestamp: String,
-    val throughputMbps: Double?,
+    val ulthroughputMbps: Double?,
+    val dlthroughputMbps: Double?,
     val meanRtt: Double?,
     val retransmits: Long?,
 )
@@ -62,22 +63,31 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
             Text("Run Test Now")
         }
 
-        val lastTimeline = viewModel.lastTestTimeline
+        val lastUlTimeline = viewModel.lastUlTimeline
+        val lastDlTimeline = viewModel.lastDlTimeline
 
-        if (lastTimeline.isNotEmpty()) {
+        if (lastDlTimeline.isNotEmpty() || lastUlTimeline.isNotEmpty()) {
             Text(
                 text = "Ostatni test - przepustowość w czasie:",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(bottom = 4.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
             )
-            IperfMiniChart(
-                points = lastTimeline,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp)
-                    .padding(bottom = 16.dp),
-            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Wysyłanie (Uplink)", style = MaterialTheme.typography.labelSmall, color = Color.Green)
+                    IperfMiniChart(points = lastUlTimeline, modifier = Modifier.fillMaxWidth().height(130.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Pobieranie (Downlink)", style = MaterialTheme.typography.labelSmall, color = Color.Blue)
+                    IperfMiniChart(points = lastDlTimeline, modifier = Modifier.fillMaxWidth().height(130.dp))
+                }
+            }
         }
 
         Text(
