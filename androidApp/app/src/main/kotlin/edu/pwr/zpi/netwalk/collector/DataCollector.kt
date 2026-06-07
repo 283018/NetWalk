@@ -70,6 +70,7 @@ class DataCollector(
 
                         val now = System.currentTimeMillis()
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
+                        // TODO: add repeat with delay if cpu is too high
                         var shouldRunIperf = now - lastIperfTime > currentIperfInterval
 
                         if (shouldForceIperf()) {

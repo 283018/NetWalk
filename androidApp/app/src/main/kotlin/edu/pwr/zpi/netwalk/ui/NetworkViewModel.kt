@@ -237,7 +237,6 @@ class NetworkViewModel(
             request.measurements.forEach { item ->
                 if (item.test_duration != null || item.protocol != null) {
                     iperfLogEntries.add(
-                        // TODO: actualize ui for up/down
                         IperfLogEntry(
                             timestamp = item.measured_at,
                             throughputMbps = item.dl_throughput_mbps,
@@ -271,7 +270,10 @@ class NetworkViewModel(
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
         onIperfRawResult = { ulRawJson, dlRawJson ->
-            val activeJson = dlRawJson ?: ulRawJson
+
+            // TODO: update plot to use both
+            val activeJson = dlRawJson ?: ulRawJson // for now using dl by default
+
             if (activeJson != null) {
                 parseIperfJsonSafe(activeJson)?.let { parsedData ->
                     lastTestTimeline = parsedData.throughputTimeline
