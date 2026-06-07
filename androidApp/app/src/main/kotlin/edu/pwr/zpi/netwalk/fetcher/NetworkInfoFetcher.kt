@@ -70,7 +70,7 @@ data class MeasurementItem(
     val host_cpu: Double? = null, // we are taking max, since whole test must be repeated if load is too high
     val remote_cpu: Double? = null,
     //
-    val is_udp: Boolean? = null,
+    val protocol: String? = null,
     val iperf_ul_json: String? = null,
     val iperf_dl_json: String? = null,
 ) {
@@ -142,7 +142,7 @@ data class MeasurementItem(
         host_cpu = listOfNotNull(iperfUl?.hostCpuTotal, iperfDl?.hostCpuTotal).maxOrNull(),
         remote_cpu = listOfNotNull(iperfUl?.remoteCpuTotal, iperfDl?.remoteCpuTotal).maxOrNull(),
         //
-        is_udp = iperfUl?.isUdp,
+        protocol = resolveProtocol(iperfUl?.protocol, iperfDl?.protocol),
         iperf_ul_json = iperfUlRaw, // optional, normally empty
         iperf_dl_json = iperfDlRaw, // optional, normally empty
     )
@@ -173,6 +173,18 @@ data class MeasurementItem(
             // iperf3 RTT values are in microseconds; convert to milliseconds
             return calculatedJitter / 1000.0
         }
+
+        private fun resolveProtocol(
+            ulProto: String?,
+            dlProto: String?,
+        ): String? =
+            when {
+                ulProto != null && dlProto != null && ulProto == dlProto -> ulProto
+                ulProto != null && dlProto == null -> ulProto
+                dlProto != null && ulProto == null -> dlProto
+                ulProto != null && dlProto != null && ulProto != dlProto -> "MIXED"
+                else -> null
+            }
     }
 }
 
