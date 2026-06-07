@@ -189,7 +189,10 @@ def get_measurements_paginated(
         .limit(limit)
         .all()
     )
-    return schemas.PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+
+    serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
+
+    return schemas.PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
 
 
 @router.get("/analysis/average-signal")
@@ -284,7 +287,7 @@ async def create_measurements_batch(request: Request, db: DbSession):
     batch_id = batch.measurements[0].session_id if batch.measurements else None
 
     if not batch.measurements:
-        return {"inserted": 0, "batch_id": batch_id}
+        raise HTTPException(status_code=400, detail="Batch cannot be empty")
 
     rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
 
@@ -471,7 +474,7 @@ def get_measurements_with_cpu_filter(
 
     serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
 
-    return PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
+    return schemas.PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
 
 @router.get("/analysis/kpi-by-cpu")
 def get_kpi_with_cpu_filter(
