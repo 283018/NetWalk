@@ -43,6 +43,8 @@ data class IperfLogEntry(
     val retransmits: Long?,
 )
 
+val dlColor = Color(0xFF2196F3)
+
 @Composable
 fun IperfLogScreen(viewModel: NetworkViewModel) {
     Column(
@@ -74,18 +76,30 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
                 modifier = Modifier.padding(bottom = 8.dp),
             )
 
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Wysyłanie (Uplink)", style = MaterialTheme.typography.labelSmall, color = Color.Green)
-                    IperfMiniChart(points = lastUlTimeline, modifier = Modifier.fillMaxWidth().height(130.dp))
+                if (lastUlTimeline.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Wysyłanie (Uplink) ↑", style = MaterialTheme.typography.labelSmall, color = Color.Green)
+                        IperfMiniChart(
+                            points = lastUlTimeline,
+                            lineColor = Color.Green,
+                            modifier = Modifier.fillMaxWidth().height(130.dp),
+                        )
+                    }
                 }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Pobieranie (Downlink)", style = MaterialTheme.typography.labelSmall, color = Color.Blue)
-                    IperfMiniChart(points = lastDlTimeline, modifier = Modifier.fillMaxWidth().height(130.dp))
+                if (lastDlTimeline.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Pobieranie (Downlink) ↓", style = MaterialTheme.typography.labelSmall, color = dlColor)
+                        IperfMiniChart(
+                            points = lastDlTimeline,
+                            lineColor = dlColor,
+                            modifier = Modifier.fillMaxWidth().height(130.dp),
+                        )
+                    }
                 }
             }
         }
@@ -122,7 +136,7 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
                         )
                         Text(
                             text = "↓ ${entry.dlthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
-                            color = Color.Green,
+                            color = dlColor,
                             fontSize = 12.sp,
                         )
                         Text(
@@ -146,8 +160,11 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
 @Composable
 fun IperfMiniChart(
     points: List<ThroughputPoint>,
+    lineColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    if (points.isEmpty()) return
+
     val maxSeconds = points.maxOf { it.seconds }.toFloat()
     val maxThroughput = (points.maxOf { it.throughputMbps } * 1.1f).toFloat().coerceAtLeast(1f)
 
@@ -229,7 +246,7 @@ fun IperfMiniChart(
 
         drawPath(
             path = path,
-            color = Color.Green,
+            color = lineColor,
             style = Stroke(width = 4f),
         )
     }
