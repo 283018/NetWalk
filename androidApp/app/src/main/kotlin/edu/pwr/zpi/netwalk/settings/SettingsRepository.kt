@@ -41,9 +41,14 @@ class SettingsRepository(
 
     val serverUrl = PreferenceItem(stringPreferencesKey("server_url"), "http://10.0.2.2:8000")
     val iperfIp = PreferenceItem(stringPreferencesKey("iperf_ip"), "10.0.2.2")
-    val iperfPort = PreferenceItem(stringPreferencesKey("iperf_port"), "443")
+    val iperfPort = PreferenceItem(stringPreferencesKey("iperf_port"), "5201")
     val iperfTime = PreferenceItem(stringPreferencesKey("iperf_time"), "10")
-    val iperfParallel = PreferenceItem(stringPreferencesKey("iperf_parallel"), "10")
+    val iperfParallel = PreferenceItem(stringPreferencesKey("iperf_parallel"), "4")
+
+    val useUdp = PreferenceItem(booleanPreferencesKey("use_udp"), false)
+    val packageSize = PreferenceItem(stringPreferencesKey("package_size"), "1000")
+    val targetBandwidth = PreferenceItem(stringPreferencesKey("target_bandwidth"), "100M")
+    val bufferLength = PreferenceItem(stringPreferencesKey("buffer_length"), "1000")
 
     val passiveInterval = PreferenceItem(longPreferencesKey("passive_interval"), 3_000L)
 
@@ -52,5 +57,6 @@ class SettingsRepository(
 
     val sendImmediately = PreferenceItem(booleanPreferencesKey("send_immediately"), false)
 
+    // not exposed to ui
     val maxQueueSize = PreferenceItem(longPreferencesKey("max_queue_size"), 100L)
 }

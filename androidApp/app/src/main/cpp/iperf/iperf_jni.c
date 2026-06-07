@@ -44,7 +44,10 @@ struct CallbackArgs {
 void *readerThreadFunc(void *args_ptr) {
     struct CallbackArgs *args = (struct CallbackArgs *)args_ptr;
     JNIEnv *env;
+    LOGI("[JNI_TRACK] readerThreadFunc spawned. Attaching current thread to "
+         "JVM.");
     (*args->jvm)->AttachCurrentThread(args->jvm, &env, NULL);
+    LOGI("[JNI_TRACK] Thread successfully attached to JVM.");
 
     jclass callbackClass = (*env)->GetObjectClass(env, args->callback_global);
     jmethodID onOutput = (*env)->GetMethodID(env, callbackClass, "onOutput",
@@ -53,16 +56,19 @@ void *readerThreadFunc(void *args_ptr) {
     char buffer[1024];
     FILE *fp = fdopen(args->pipe_fd, "r");
 
+    LOGI("[JNI_TRACK] Starting pipe reading loop...");
     while (fgets(buffer, sizeof(buffer), fp)) {
         jstring line = (*env)->NewStringUTF(env, buffer);
         (*env)->CallVoidMethod(env, args->callback_global, onOutput, line);
         (*env)->DeleteLocalRef(env, line);
     }
+    LOGI("[JNI_TRACK] Pipe reading loop exited (EOF reached or pipe broken).");
 
     fclose(fp);
     (*env)->DeleteGlobalRef(env, args->callback_global);
     (*args->jvm)->DetachCurrentThread(args->jvm);
     free(args);
+    LOGI("[JNI_TRACK] Reader thread detached and fully closed.");
     return NULL;
 }
 
@@ -75,6 +81,7 @@ void *readerThreadFunc(void *args_ptr) {
 JNIEXPORT void JNICALL
 Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_forceStopIperfTest(
     JNIEnv *env, jobject thiz, jobject callback) {
+    LOGI("[JNI_TRACK] forceStopIperfTest called from Kotlin.");
     stop_requested = true;
 
     jclass callbackClass = (*env)->GetObjectClass(env, callback);
@@ -102,6 +109,8 @@ Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_forceStopIperfTest(
  */
 JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     JNIEnv *env, jobject thiz, jobjectArray arguments, jobject callback) {
+    LOGI("[JNI_TRACK] Entered runIperfLive JNI method");
+
     jclass callbackClass = (*env)->GetObjectClass(env, callback);
     jmethodID onOutput = (*env)->GetMethodID(env, callbackClass, "onOutput",
                                              "(Ljava/lang/String;)V");
@@ -115,6 +124,7 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     if (argc > 64)
         argc = 64;
 
+    LOGI("[JNI_TRACK] Parsing Kotlin arguments array. Size: %d", argc);
     char *argv[64];
     for (int i = 0; i < argc; i++) {
         jstring arg = (jstring)(*env)->GetObjectArrayElement(env, arguments, i);
@@ -124,8 +134,10 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     }
 
     // ───── Create and initialize iperf test ─────
+    LOGI("[JNI_TRACK] Allocating iperf_new_test...");
     global_test = iperf_new_test();
     if (!global_test) {
+        LOGE("[JNI_TRACK] CRITICAL: Failed to create iperf test instance.");
         jstring errMsg =
             (*env)->NewStringUTF(env, "Failed to create iperf test");
         (*env)->CallVoidMethod(env, callback, onError, errMsg);
@@ -135,6 +147,7 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     iperf_defaults(global_test);
 
     // ───── Setup pipe to capture iperf output ─────
+    LOGI("[JNI_TRACK] Setting up internal POSIX output pipes...");
     int pipefd[2];
     if (pipe(pipefd) < 0) {
         jstring errMsg =
@@ -150,7 +163,9 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     global_test->outfile = fp;
 
     // ───── Parse iperf arguments ─────
+    LOGI("[JNI_TRACK] Passing argv map to iperf_parse_arguments...");
     if (iperf_parse_arguments(global_test, argc, argv) < 0) {
+        LOGE("[JNI_TRACK] Parse Error: %s", iperf_strerror(i_errno));
         fflush(fp);
         fclose(fp);
 
@@ -162,11 +177,14 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     }
 
     // ───── Start reader thread ─────
+    LOGI("[JNI_TRACK] Creating background pthread for output handling...");
     struct CallbackArgs *cb_args = malloc(sizeof(struct CallbackArgs));
     (*env)->GetJavaVM(env, &cb_args->jvm);
     cb_args->callback_global = (*env)->NewGlobalRef(env, callback);
     cb_args->pipe_fd = pipefd[0];
-    pthread_create(&reader_thread, NULL, readerThreadFunc, cb_args);
+    int thread_status =
+        pthread_create(&reader_thread, NULL, readerThreadFunc, cb_args);
+    LOGI("[JNI_TRACK] pthread_create code returned status: %d", thread_status);
 
     // ───── Notify start ─────
     // REMOVED MESSAGE
@@ -176,14 +194,21 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     // (*env)->DeleteLocalRef(env, initMsg);
 
     // ───── Run the test ─────
+    LOGI("[JNI_TRACK] !!! Launching blocking iperf_run_client loop !!!");
     int result = iperf_run_client(global_test);
+    LOGI("[JNI_TRACK] iperf_run_client returned execution to JNI with result "
+         "flag: %d",
+         result);
     if (result < 0 && global_test) {
+        LOGE("[JNI_TRACK] Core execution failure code: %s",
+             iperf_strerror(i_errno));
         jstring errMsg = (*env)->NewStringUTF(env, iperf_strerror(i_errno));
         (*env)->CallVoidMethod(env, callback, onError, errMsg);
         (*env)->DeleteLocalRef(env, errMsg);
     }
 
     // ───── Cleanup ─────
+    LOGI("[JNI_TRACK] Commencing resource cleanup...");
     fflush(fp);
     fclose(fp);
 
@@ -192,7 +217,9 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
         global_test = NULL;
     }
 
+    LOGI("[JNI_TRACK] Waiting for reader thread to join...");
     pthread_join(reader_thread, NULL);
+    LOGI("[JNI_TRACK] Reader thread joined successfully.");
 
     for (int i = 0; i < argc; i++) {
         free(argv[i]);
@@ -219,5 +246,7 @@ JNIEXPORT void JNICALL Java_edu_pwr_zpi_netwalk_iperf_IperfRunner_runIperfLive(
     reader_thread = 0;
 
     // ───── Notify completion to Java ─────
+    LOGI("[JNI_TRACK] Invoking onComplete Kotlin callback hook. Execution "
+         "complete.");
     (*env)->CallVoidMethod(env, callback, onComplete);
 }

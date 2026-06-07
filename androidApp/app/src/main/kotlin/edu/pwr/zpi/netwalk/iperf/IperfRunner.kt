@@ -1,8 +1,11 @@
 package edu.pwr.zpi.netwalk.iperf
 
 // disable android optimization for these functions names
+import android.net.TrafficStats
 import androidx.annotation.Keep
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -38,32 +41,48 @@ object IperfRunner {
     external fun forceStopIperfTest(callback: IperfCallback)
 
     suspend fun runIperfOnce(command: Array<String>): String =
-        suspendCancellableCoroutine { cont ->
+        withContext(Dispatchers.IO) {
+            TrafficStats.setThreadStatsTag(0x00001000)
 
-            val outputBuffer = StringBuilder()
+            try {
+                suspendCancellableCoroutine { cont ->
 
-            val callback = object : IperfCallback {
-                override fun onOutput(message: String) {
-                    outputBuffer.append(message)
-                }
+                    val outputBuffer = StringBuilder()
 
-                override fun onError(error: String) {
-                    if (cont.isActive) {
-                        cont.resumeWithException(RuntimeException(error))
+                    val callback = object : IperfCallback {
+                        override fun onOutput(message: String) {
+                            outputBuffer.append(message)
+                        }
+
+                        override fun onError(error: String) {
+                            if (cont.isActive) {
+                                cont.resumeWithException(RuntimeException(error))
+                            }
+                        }
+
+                        override fun onComplete() {
+                            if (cont.isActive) {
+                                cont.resume(outputBuffer.toString())
+                            }
+                        }
                     }
-                }
 
-                override fun onComplete() {
-                    if (cont.isActive) {
-                        cont.resume(outputBuffer.toString())
+                    cont.invokeOnCancellation {
+                        forceStopIperfTest(callback)
                     }
+
+                    Thread {
+                        try {
+                            runIperfLive(command, callback)
+                        } catch (e: Exception) {
+                            if (cont.isActive) {
+                                cont.resumeWithException(e)
+                            }
+                        }
+                    }.start()
                 }
-            }
-
-            runIperfLive(command, callback)
-
-            cont.invokeOnCancellation {
-                forceStopIperfTest(callback)
+            } finally {
+                TrafficStats.clearThreadStatsTag()
             }
         }
 }
@@ -73,17 +92,34 @@ data class ThroughputPoint(
     val throughputMbps: Double,
 )
 
+data class RttPoint(
+    val timeEnd: Double,
+    val rtt: Double,
+)
+
+data class RttVarPoint(
+    val timeEnd: Double,
+    val rttvar: Double,
+)
+
 data class IperfParsed(
+    val protocol: String?,
     val throughputMbps: Double?,
-    val meanRtt: Double?,
-    val minRtt: Double?,
+    val meanRtt: Double?, // TCP specific
+    val minRtt: Double?, // TCP specific
     val maxRtt: Double?,
+    val jitterMs: Double?, // directly from UDP
+    val lostPackets: Long?, // UDP specific
+    val lostPercent: Double?,
     val hostCpuTotal: Double?,
     val remoteCpuTotal: Double?,
     val startTime: String?,
     val testDuration: Double?,
-    val retransmits: Long?,
+    val retransmits: Long?, // TCP specific
     val throughputTimeline: List<ThroughputPoint>,
+    // timelines for calculating proper jitter in tcp
+    val rttTimeline: List<RttPoint>,
+    val rttVarTimeline: List<RttVarPoint>,
 )
 
 fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
@@ -104,8 +140,18 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         val senderStats = streamData?.get("sender")?.jsonObject
 
         val timestamp = start?.get("timestamp")?.jsonObject
+        val testStart = start?.get("test_start")?.jsonObject
+
+        val protocol = testStart
+            ?.get("protocol")
+            ?.jsonPrimitive
+            ?.content
+            ?.uppercase()
 
         val timelinePoints = mutableListOf<ThroughputPoint>()
+        val rttPoints = mutableListOf<RttPoint>()
+        val rttVarPoints = mutableListOf<RttVarPoint>()
+
         val intervals = json["intervals"]?.jsonArray
 
         intervals?.forEach { intervalElement ->
@@ -123,26 +169,40 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
                     timelinePoints.add(ThroughputPoint(timeEnd, mbps))
                 }
             }
+            val firstStream = intervalObj["streams"]?.jsonArray?.firstOrNull()?.jsonObject
+            if (firstStream != null) {
+                val timeEnd = firstStream["end"]?.jsonPrimitive?.doubleOrNull
+                val rtt = firstStream["rtt"]?.jsonPrimitive?.doubleOrNull
+                val rttvar = firstStream["rttvar"]?.jsonPrimitive?.doubleOrNull
+
+                if (timeEnd != null) {
+                    if (rtt != null) rttPoints.add(RttPoint(timeEnd, rtt))
+                    if (rttvar != null) rttVarPoints.add(RttVarPoint(timeEnd, rttvar))
+                }
+            }
         }
 
         IperfParsed(
+            protocol = protocol,
             // Throughput mbps
             throughputMbps = sumReceived // f flag foes not affect json output
                 ?.get("bits_per_second")
                 ?.jsonPrimitive
                 ?.doubleOrNull
                 ?.div(1_000_000.0),
-            // latency and jitter
+            // TCP latency and jitter
             meanRtt = senderStats?.get("mean_rtt")?.jsonPrimitive?.doubleOrNull,
             minRtt = senderStats?.get("min_rtt")?.jsonPrimitive?.doubleOrNull,
             maxRtt = senderStats?.get("max_rtt")?.jsonPrimitive?.doubleOrNull,
+            // UDP jitter and packet loss
+            jitterMs = sumReceived?.get("jitter_ms")?.jsonPrimitive?.doubleOrNull,
+            lostPackets = sumReceived?.get("lost_packets")?.jsonPrimitive?.longOrNull,
+            lostPercent = sumReceived?.get("lost_percent")?.jsonPrimitive?.doubleOrNull,
             // cpu utilization
             hostCpuTotal = cpuUtil?.get("host_total")?.jsonPrimitive?.doubleOrNull,
             remoteCpuTotal = cpuUtil?.get("remote_total")?.jsonPrimitive?.doubleOrNull,
             // timing
-            startTime = start
-                ?.get("timestamp")
-                ?.jsonObject
+            startTime = timestamp
                 ?.get("time")
                 ?.jsonPrimitive
                 ?.contentOrNull,
@@ -155,6 +215,8 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
                 ?.jsonPrimitive
                 ?.longOrNull,
             throughputTimeline = timelinePoints,
+            rttTimeline = rttPoints,
+            rttVarTimeline = rttVarPoints,
         )
     } catch (_: Exception) {
         null

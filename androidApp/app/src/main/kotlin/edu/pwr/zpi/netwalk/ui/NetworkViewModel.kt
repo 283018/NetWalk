@@ -3,6 +3,7 @@ package edu.pwr.zpi.netwalk.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,10 @@ data class NetworkSettingsState(
     val iperfPort: String,
     val iperfTime: String,
     val iperfParallel: String,
+    val packageSize: String,
+    val bufferLength: String,
+    val targetBandwidth: String,
+    val useUdp: Boolean,
     val sendImmediately: Boolean,
 )
 
@@ -99,6 +104,10 @@ class NetworkViewModel(
         settings.iperfPort.flow,
         settings.iperfTime.flow,
         settings.iperfParallel.flow,
+        settings.useUdp.flow,
+        settings.packageSize.flow,
+        settings.targetBandwidth.flow,
+        settings.bufferLength.flow,
         settings.sendImmediately.flow,
     ) { values: Array<Any?> ->
         NetworkSettingsState(
@@ -107,7 +116,11 @@ class NetworkViewModel(
             iperfPort = values[2] as String,
             iperfTime = values[3] as String,
             iperfParallel = values[4] as String,
-            sendImmediately = values[5] as Boolean,
+            useUdp = values[5] as Boolean,
+            packageSize = values[6] as String,
+            targetBandwidth = values[7] as String,
+            bufferLength = values[8] as String,
+            sendImmediately = values[9] as Boolean,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -118,6 +131,10 @@ class NetworkViewModel(
             settings.iperfPort.defaultValue,
             settings.iperfTime.defaultValue,
             settings.iperfParallel.defaultValue,
+            settings.packageSize.defaultValue,
+            settings.targetBandwidth.defaultValue,
+            settings.bufferLength.defaultValue,
+            settings.useUdp.defaultValue,
             settings.sendImmediately.defaultValue,
         ),
     )
@@ -129,6 +146,10 @@ class NetworkViewModel(
             settings.iperfPort.update(state.iperfPort)
             settings.iperfTime.update(state.iperfTime)
             settings.iperfParallel.update(state.iperfParallel)
+            settings.packageSize.update(state.packageSize)
+            settings.targetBandwidth.update(state.targetBandwidth)
+            settings.bufferLength.update(state.bufferLength)
+            settings.useUdp.update(state.useUdp)
             settings.sendImmediately.update(state.sendImmediately)
         }
     }
@@ -139,6 +160,10 @@ class NetworkViewModel(
         settings.iperfPort.defaultValue,
         settings.iperfTime.defaultValue,
         settings.iperfParallel.defaultValue,
+        settings.packageSize.defaultValue,
+        settings.targetBandwidth.defaultValue,
+        settings.bufferLength.defaultValue,
+        settings.useUdp.defaultValue,
         settings.sendImmediately.defaultValue,
     )
 
@@ -199,7 +224,7 @@ class NetworkViewModel(
 
     private val collector = DataCollector(
         scope = viewModelScope,
-        getIperfCommand = { iperfCommand.value },
+        getIperfCommand = { isDownload -> iperfCommand(isDownload) },
         onStatusUpdate = { status -> lastStatus = status },
         onPassiveDataUpdate = { network, location, system ->
             uiStateNetwork = network
@@ -210,13 +235,13 @@ class NetworkViewModel(
         sendRequest = { request ->
 
             request.measurements.forEach { item ->
-                if (item.throughput_mbps != null || item.mean_rtt != null || item.retransmits != null) {
+                if (item.test_duration != null || item.protocol != null) {
                     iperfLogEntries.add(
                         IperfLogEntry(
                             timestamp = item.measured_at,
-                            throughputMbps = item.throughput_mbps,
-                            meanRtt = item.mean_rtt,
-                            retransmits = item.retransmits,
+                            throughputMbps = item.dl_throughput_mbps,
+                            meanRtt = item.dl_mean_rtt,
+                            retransmits = item.dl_retransmits,
                         ),
                     )
                 }
@@ -244,9 +269,15 @@ class NetworkViewModel(
         },
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
-        onIperfRawResult = { rawJson ->
-            parseIperfJsonSafe(rawJson)?.let { parsedData ->
-                lastTestTimeline = parsedData.throughputTimeline
+        onIperfRawResult = { ulRawJson, dlRawJson ->
+
+            // TODO: update plot to use both
+            val activeJson = dlRawJson ?: ulRawJson // for now using dl by default
+
+            if (activeJson != null) {
+                parseIperfJsonSafe(activeJson)?.let { parsedData ->
+                    lastTestTimeline = parsedData.throughputTimeline
+                }
             }
         },
     )
@@ -315,35 +346,51 @@ class NetworkViewModel(
         }
     }
 
-    val iperfCommand = combine(
-        settings.iperfIp.flow,
-        settings.iperfPort.flow,
-        settings.iperfTime.flow,
-        settings.iperfParallel.flow,
-    ) { ip, port, time, parallel ->
-        buildList {
+    private fun iperfCommand(isDownload: Boolean): Array<String> {
+        val state = uiSettingsState.value
+
+        val commandArray = buildList {
             add("iperf3")
             add("-c")
-            add(ip)
+            add(state.iperfIp)
 
-            if (port.isNotBlank()) {
+            if (state.iperfPort.isNotBlank()) {
                 add("-p")
-                add(port)
+                add(state.iperfPort)
+            }
+
+            if (state.useUdp) {
+                add("-u")
+
+                add("-l")
+                add(state.bufferLength)
+
+                add("-b")
+                add(state.targetBandwidth)
+            } else {
+                add("-M")
+                add(state.packageSize)
             }
 
             add("-t")
-            add(time)
+            add(state.iperfTime)
 
-            if (parallel.isNotBlank()) {
+            if (state.iperfParallel.isNotBlank()) {
                 add("-P")
-                add(parallel)
+                add(state.iperfParallel)
+            }
+
+            if (isDownload) {
+                add("-R")
             }
 
             add("--json")
         }.toTypedArray()
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = arrayOf("iperf3"), // temporary fallback on init, reconstructed form default arguments later
-    )
+
+        // temporary fallback on init, reconstructed form default arguments later
+        val finalArray = if (state.iperfIp.isBlank()) arrayOf("iperf3") else commandArray
+        Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
+
+        return finalArray
+    }
 }

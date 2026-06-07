@@ -13,6 +13,7 @@ import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import edu.pwr.zpi.netwalk.iperf.IperfParsed
+import edu.pwr.zpi.netwalk.iperf.RttPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -42,19 +43,36 @@ data class MeasurementItem(
     val battery_level: Int? = null,
     val battery_temp: Double? = null,
     val os_version: String? = null,
-    val throughput_mbps: Double? = null,
-    val latency_ms: Double? = null,
-    val jitter_ms: Double? = null,
-    val cpu_utilization: Double? = null,
+    //
+    val ul_throughput_mbps: Double? = null,
+    val ul_latency_ms: Double? = null,
+    val ul_jitter_ms: Double? = null,
+    val ul_mean_rtt: Double? = null,
+    val ul_min_rtt: Double? = null,
+    val ul_max_rtt: Double? = null,
+    val ul_retransmits: Long? = null,
+    val ul_lost_packets: Long? = null,
+    val ul_lost_percent: Double? = null,
+    //
+    val dl_throughput_mbps: Double? = null,
+    val dl_latency_ms: Double? = null,
+    val dl_jitter_ms: Double? = null,
+    val dl_mean_rtt: Double? = null,
+    val dl_min_rtt: Double? = null,
+    val dl_max_rtt: Double? = null,
+    val dl_retransmits: Long? = null,
+    val dl_lost_packets: Long? = null,
+    val dl_lost_percent: Double? = null,
+    //
     val test_start_time: String? = null,
     val test_duration: Double? = null,
-    val mean_rtt: Double? = null,
-    val min_rtt: Double? = null,
-    val max_rtt: Double? = null,
-    val host_cpu: Double? = null,
+    //
+    val host_cpu: Double? = null, // we are taking max, since whole test must be repeated if load is too high
     val remote_cpu: Double? = null,
-    val retransmits: Long? = null,
-    val iperf_json: String? = null,
+    //
+    val protocol: String? = null,
+    val iperf_ul_json: String? = null,
+    val iperf_dl_json: String? = null,
 ) {
     constructor (
         sessionId: String,
@@ -65,8 +83,10 @@ data class MeasurementItem(
         servingLte: LteNetworkInfo?,
         measuredAt: Long,
         system: SystemData,
-        iperf: IperfParsed?,
-        iperfRaw: String? = null,
+        iperfUl: IperfParsed?,
+        iperfDl: IperfParsed?,
+        iperfUlRaw: String? = null,
+        iperfDlRaw: String? = null,
     ) : this(
         session_id = sessionId,
         android_id = system.android_id,
@@ -88,22 +108,43 @@ data class MeasurementItem(
         battery_level = system.battery_level,
         battery_temp = system.battery_temp,
         os_version = system.os_version,
-        throughput_mbps = iperf?.throughputMbps,
-        latency_ms = iperf?.meanRtt,
-        jitter_ms = if (iperf?.maxRtt != null && iperf.minRtt != null) {
-            (iperf.maxRtt - iperf.minRtt)
+        //
+        ul_throughput_mbps = iperfUl?.throughputMbps,
+        ul_latency_ms = iperfUl?.meanRtt,
+        ul_jitter_ms = iperfUl?.jitterMs ?: calculateTcpJitterMs(iperfUl?.rttTimeline),
+        ul_mean_rtt = iperfUl?.meanRtt,
+        ul_min_rtt = iperfUl?.minRtt,
+        ul_max_rtt = iperfUl?.maxRtt,
+        ul_retransmits = iperfUl?.retransmits,
+        ul_lost_packets = iperfUl?.lostPackets,
+        ul_lost_percent = iperfUl?.lostPercent,
+        //
+        dl_throughput_mbps = iperfDl?.throughputMbps,
+        dl_latency_ms = iperfDl?.meanRtt,
+        dl_jitter_ms = iperfDl?.jitterMs ?: calculateTcpJitterMs(iperfDl?.rttTimeline),
+        dl_mean_rtt = iperfDl?.meanRtt,
+        dl_min_rtt = iperfDl?.minRtt,
+        dl_max_rtt = iperfDl?.maxRtt,
+        dl_retransmits = iperfDl?.retransmits,
+        dl_lost_packets = iperfDl?.lostPackets,
+        dl_lost_percent = iperfDl?.lostPercent,
+        //
+        test_start_time = listOfNotNull(
+            iperfDl?.startTime?.let { convertIperfTimeToIso(it) },
+            iperfUl?.startTime?.let { convertIperfTimeToIso(it) },
+        ).minOrNull(),
+        test_duration = if (iperfUl?.testDuration != null || iperfDl?.testDuration != null) {
+            (iperfUl?.testDuration ?: 0.0) + (iperfDl?.testDuration ?: 0.0)
         } else {
             null
         },
-        test_start_time = iperf?.startTime?.let { convertIperfTimeToIso(it) },
-        test_duration = iperf?.testDuration,
-        mean_rtt = iperf?.meanRtt,
-        min_rtt = iperf?.minRtt,
-        max_rtt = iperf?.maxRtt,
-        host_cpu = iperf?.hostCpuTotal,
-        remote_cpu = iperf?.remoteCpuTotal,
-        retransmits = iperf?.retransmits,
-        iperf_json = iperfRaw, // optional, normally empty
+        //
+        host_cpu = listOfNotNull(iperfUl?.hostCpuTotal, iperfDl?.hostCpuTotal).maxOrNull(),
+        remote_cpu = listOfNotNull(iperfUl?.remoteCpuTotal, iperfDl?.remoteCpuTotal).maxOrNull(),
+        //
+        protocol = resolveProtocol(iperfUl?.protocol, iperfDl?.protocol),
+        iperf_ul_json = iperfUlRaw, // optional, normally empty
+        iperf_dl_json = iperfDlRaw, // optional, normally empty
     )
 
     companion object {
@@ -113,6 +154,36 @@ data class MeasurementItem(
                 parsed.toInstant().toString()
             } catch (e: Exception) {
                 null
+            }
+
+        // calculating jitter according to RFC 3550
+        private fun calculateTcpJitterMs(rttTimeline: List<RttPoint>?): Double? {
+            if (rttTimeline.isNullOrEmpty() || rttTimeline.size < 2) return null
+
+            var calculatedJitter = 0.0
+
+            for (i in 1 until rttTimeline.size) {
+                val currentRtt = rttTimeline[i].rtt
+                val previousRtt = rttTimeline[i - 1].rtt
+
+                val delta = kotlin.math.abs(currentRtt - previousRtt)
+                calculatedJitter += (delta - calculatedJitter) / 16.0
+            }
+
+            // iperf3 RTT values are in microseconds; convert to milliseconds
+            return calculatedJitter / 1000.0
+        }
+
+        private fun resolveProtocol(
+            ulProto: String?,
+            dlProto: String?,
+        ): String? =
+            when {
+                ulProto != null && dlProto != null && ulProto == dlProto -> ulProto
+                ulProto != null && dlProto == null -> ulProto
+                dlProto != null && ulProto == null -> dlProto
+                ulProto != null && dlProto != null && ulProto != dlProto -> "MIXED"
+                else -> null
             }
     }
 }
@@ -168,13 +239,15 @@ fun NetworkInfoData.toMeasurementsRequest(
     latitude: Double?,
     longitude: Double?,
     systemData: SystemData,
-    iperfRaw: String?,
+    iperfUlRaw: String?,
+    iperfDlRaw: String?,
     measuredAtNow: Long? = null,
 ): MeasurementRequest {
     val servingLte = lteCells.find { it.isServing }
     val servingNr = nrCells.find { it.isServing }
 
-    val iperfParsed = iperfRaw?.let { parseIperfJsonSafe(it) }
+    val iperfUlParsed = iperfUlRaw?.let { parseIperfJsonSafe(it) }
+    val iperfDlParsed = iperfDlRaw?.let { parseIperfJsonSafe(it) }
 
     val item = MeasurementItem(
         sessionId = sessionId,
@@ -185,8 +258,10 @@ fun NetworkInfoData.toMeasurementsRequest(
         servingLte = servingLte,
         measuredAt = measuredAtNow ?: System.currentTimeMillis(),
         system = systemData,
-        iperf = iperfParsed,
-        // iperfRaw = iperfRaw, // debug leftover
+        iperfUl = iperfUlParsed,
+        iperfDl = iperfDlParsed,
+        // iperfUlRaw = iperfUlRaw, // debug leftover
+        // iperfDlRaw = iperfDlRaw, // debug leftover
     )
 
     return MeasurementRequest(measurements = listOf(item))

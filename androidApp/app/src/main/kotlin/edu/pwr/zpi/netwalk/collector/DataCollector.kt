@@ -23,13 +23,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 class DataCollector(
     private val scope: CoroutineScope,
-    private val getIperfCommand: () -> Array<String>,
+    private val getIperfCommand: (isDownload: Boolean) -> Array<String>,
     private val onStatusUpdate: (String) -> Unit,
     private val onPassiveDataUpdate: (NetworkInfoData?, Pair<Double?, Double?>, SystemData?) -> Unit,
     private val sendRequest: suspend (MeasurementRequest) -> Unit,
     private val shouldForceIperf: () -> Boolean,
     private val onForceIperfHandled: () -> Unit,
-    private val onIperfRawResult: (String) -> Unit,
+    private val onIperfRawResult: (String?, String?) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
@@ -70,6 +70,7 @@ class DataCollector(
 
                         val now = System.currentTimeMillis()
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
+                        // TODO: add repeat with delay if cpu is too high
                         var shouldRunIperf = now - lastIperfTime > currentIperfInterval
 
                         if (shouldForceIperf()) {
@@ -77,23 +78,28 @@ class DataCollector(
                             onForceIperfHandled()
                         }
 
-                        val iperfResult = if (shouldRunIperf) {
+                        val (iperfUploadResult, iperfDownloadResult) = if (shouldRunIperf) {
                             lastIperfTime = now
                             try {
                                 withContext(Dispatchers.IO) {
-                                    withTimeoutOrNull(currentTimout) {
-                                        IperfRunner.runIperfOnce(getIperfCommand())
+                                    val ulResuls = withTimeoutOrNull(currentTimout) {
+                                        // named args are prohibited in labdas
+                                        IperfRunner.runIperfOnce(getIperfCommand(false)) // isDownload=false
                                     }
+                                    val dlResult = withTimeoutOrNull(currentTimout) {
+                                        IperfRunner.runIperfOnce(getIperfCommand(true)) // isDownload=true
+                                    }
+                                    Pair(ulResuls, dlResult)
                                 }
                             } catch (e: Exception) {
-                                null
+                                Pair(null, null)
                             }
                         } else {
-                            null
+                            Pair(null, null)
                         }
 
-                        if (iperfResult != null) {
-                            onIperfRawResult(iperfResult)
+                        if (iperfUploadResult != null || iperfDownloadResult != null) {
+                            onIperfRawResult(iperfUploadResult, iperfDownloadResult)
                         }
 
                         val request = networkData.toMeasurementsRequest(
@@ -101,7 +107,8 @@ class DataCollector(
                             latitude = locationData.first,
                             longitude = locationData.second,
                             systemData = systemData,
-                            iperfRaw = iperfResult,
+                            iperfUlRaw = iperfUploadResult,
+                            iperfDlRaw = iperfDownloadResult,
                             measuredAtNow = now,
                         )
 
