@@ -103,7 +103,7 @@ data class RttVarPoint(
 )
 
 data class IperfParsed(
-    val isUdp: Boolean,
+    val protocol: String?,
     val throughputMbps: Double?,
     val meanRtt: Double?, // TCP specific
     val minRtt: Double?, // TCP specific
@@ -141,8 +141,12 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
 
         val timestamp = start?.get("timestamp")?.jsonObject
         val testStart = start?.get("test_start")?.jsonObject
-        val protocol = testStart?.get("protocol")?.jsonPrimitive?.content
-        val isUdp = protocol?.equals("UDP", ignoreCase = true) == true
+
+        val protocol = testStart
+            ?.get("protocol")
+            ?.jsonPrimitive
+            ?.content
+            ?.uppercase()
 
         val timelinePoints = mutableListOf<ThroughputPoint>()
         val rttPoints = mutableListOf<RttPoint>()
@@ -179,7 +183,7 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         }
 
         IperfParsed(
-            isUdp = isUdp,
+            protocol = protocol,
             // Throughput mbps
             throughputMbps = sumReceived // f flag foes not affect json output
                 ?.get("bits_per_second")

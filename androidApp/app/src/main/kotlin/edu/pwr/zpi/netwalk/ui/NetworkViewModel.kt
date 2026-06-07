@@ -235,7 +235,7 @@ class NetworkViewModel(
         sendRequest = { request ->
 
             request.measurements.forEach { item ->
-                if (item.test_duration != null || item.is_udp != null) {
+                if (item.test_duration != null || item.protocol != null) {
                     iperfLogEntries.add(
                         // TODO: actualize ui for up/down
                         IperfLogEntry(
