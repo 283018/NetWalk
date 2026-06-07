@@ -116,7 +116,12 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
-                            text = "↓ ${entry.throughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
+                            text = "↑ ${entry.ulthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
+                            color = Color.Green,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            text = "↓ ${entry.dlthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
                             color = Color.Green,
                             fontSize = 12.sp,
                         )
