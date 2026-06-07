@@ -70,7 +70,9 @@ class NetworkViewModel(
     var forceIperfNow by mutableStateOf(false)
         private set
 
-    var lastTestTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+    var lastDlTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+        private set
+    var lastUlTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
         private set
 
     private var sessionId: String = "" // only passive collection for ui displaying
@@ -91,7 +93,8 @@ class NetworkViewModel(
 
     fun requestIperfNow() {
         forceIperfNow = true
-        lastTestTimeline = emptyList()
+        lastUlTimeline = emptyList()
+        lastDlTimeline = emptyList()
     }
 
     private val flushMutex = Mutex()
@@ -239,7 +242,8 @@ class NetworkViewModel(
                     iperfLogEntries.add(
                         IperfLogEntry(
                             timestamp = item.measured_at,
-                            throughputMbps = item.dl_throughput_mbps,
+                            ulthroughputMbps = item.ul_throughput_mbps,
+                            dlthroughputMbps = item.dl_throughput_mbps,
                             meanRtt = item.dl_mean_rtt,
                             retransmits = item.dl_retransmits,
                         ),
@@ -270,15 +274,13 @@ class NetworkViewModel(
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
         onIperfRawResult = { ulRawJson, dlRawJson ->
+            lastDlTimeline = dlRawJson?.let {
+                parseIperfJsonSafe(it)?.throughputTimeline
+            } ?: emptyList()
 
-            // TODO: update plot to use both
-            val activeJson = dlRawJson ?: ulRawJson // for now using dl by default
-
-            if (activeJson != null) {
-                parseIperfJsonSafe(activeJson)?.let { parsedData ->
-                    lastTestTimeline = parsedData.throughputTimeline
-                }
-            }
+            lastUlTimeline = ulRawJson?.let {
+                parseIperfJsonSafe(it)?.throughputTimeline
+            } ?: emptyList()
         },
     )
 
