@@ -101,7 +101,6 @@ fun SettingsScreen(
             isValid = ::isValidPort,
         )
 
-        // TODO: disable flag change support option in future
         SettingStringField(
             label = "Iperf Length (-t)",
             value = editableSettings.iperfTime,
