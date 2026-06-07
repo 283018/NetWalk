@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from functools import cached_property
 from typing import cast
 from uuid import UUID
@@ -10,6 +11,12 @@ from shapely.geometry import Point
 
 LAT_RANGE = 90
 LON_RANGE = 180
+
+
+class Protocol(str, StrEnum):
+    TCP = "TCP"
+    UDP = "UDP"
+    MIXED = "MIXED"
 
 
 class MeasurementBase(BaseModel):
@@ -41,6 +48,25 @@ class MeasurementBase(BaseModel):
     host_cpu: float | None = None
     remote_cpu: float | None = None
     retransmits: float | None = None
+    protocol: Protocol | None = None
+    ul_throughput_mbps: float | None = None
+    ul_latency_ms: float | None = None
+    ul_jitter_ms: float | None = None
+    ul_mean_rtt: float | None = None
+    ul_min_rtt: float | None = None
+    ul_max_rtt: float | None = None
+    ul_retransmits: int | None = None
+    ul_lost_packets: int | None = None
+    ul_lost_percent: float | None = None
+    dl_throughput_mbps: float | None = None
+    dl_latency_ms: float | None = None
+    dl_jitter_ms: float | None = None
+    dl_mean_rtt: float | None = None
+    dl_min_rtt: float | None = None
+    dl_max_rtt: float | None = None
+    dl_retransmits: int | None = None
+    dl_lost_packets: int | None = None
+    dl_lost_percent: float | None = None
 
 
 class MeasurementCreate(MeasurementBase):

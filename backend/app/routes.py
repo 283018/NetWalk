@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from geoalchemy2 import functions as geo_func
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
-from app.analytics import propagation_map
 
 from app import models, schemas
 from app.analytics import (
@@ -18,6 +17,7 @@ from app.analytics import (
     kpi_stats,
     last_measurement,
     list_devices,
+    propagation_map,
 )
 from app.database import get_db
 
@@ -210,7 +210,7 @@ async def create_measurements_batch(request: Request, db: DbSession):
     if not raw_body:
         raise HTTPException(
             status_code=400,
-            detail="Brak danych w żądaniu."
+            detail="Brak danych w żądaniu.",
         )
 
     encoding = request.headers.get("content-encoding", "").lower()
@@ -225,7 +225,7 @@ async def create_measurements_batch(request: Request, db: DbSession):
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}"
+            detail=f"Błąd dekompresji: Niepoprawny format Gzip lub kodowanie tekstowe. {e!s}",
         ) from e
 
     try:
@@ -234,45 +234,29 @@ async def create_measurements_batch(request: Request, db: DbSession):
 
     except json.JSONDecodeError:
         raise HTTPException(
-            status_code=400,
-            detail="Dane nie są poprawnym formatem JSON."
+            status_code=400, detail="Dane nie są poprawnym formatem JSON."
         ) from None
 
     except Exception as e:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Błąd Pydantic: {e!s}"
-        ) from e
+        raise HTTPException(status_code=422, detail=f"Błąd Pydantic: {e!s}") from e
 
     batch_id = batch.measurements[0].session_id if batch.measurements else None
 
     if not batch.measurements:
-        return {
-            "inserted": 0,
-            "batch_id": batch_id
-        }
+        return {"inserted": 0, "batch_id": batch_id}
 
-    rows = [
-        models.Measurement(**item.to_db_dict())
-        for item in batch.measurements
-    ]
+    rows = [models.Measurement(**item.to_db_dict()) for item in batch.measurements]
 
     try:
         db.add_all(rows)
         db.commit()
 
-        return {
-            "inserted": len(rows),
-            "batch_id": batch_id
-        }
+        return {"inserted": len(rows), "batch_id": batch_id}
 
     except Exception as e:
         db.rollback()
 
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database insert failed: {e!s}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Database insert failed: {e!s}") from e
 
 
 @router.post("/sessions/start", response_model=schemas.SessionResponse)
@@ -343,15 +327,12 @@ def get_measurements_stats(
     stats = q.with_entities(
         func.count(func.distinct(models.Measurement.session_id)).label("unique_sessions"),
         func.count(func.distinct(models.Measurement.android_id)).label("unique_devices"),
-
         func.avg(models.Measurement.rsrp).label("avg_rsrp"),
         func.min(models.Measurement.rsrp).label("min_rsrp"),
         func.max(models.Measurement.rsrp).label("max_rsrp"),
-
         func.avg(models.Measurement.sinr).label("avg_sinr"),
         func.min(models.Measurement.sinr).label("min_sinr"),
         func.max(models.Measurement.sinr).label("max_sinr"),
-
         func.avg(models.Measurement.throughput_mbps).label("avg_throughput"),
         func.max(models.Measurement.throughput_mbps).label("max_throughput"),
     ).first()
@@ -403,26 +384,19 @@ def get_measurements_stats(
         "total_measurements": total,
         "unique_sessions": stats.unique_sessions or 0,
         "unique_devices": stats.unique_devices or 0,
-
         "avg_rsrp": float(stats.avg_rsrp) if stats.avg_rsrp is not None else None,
         "min_rsrp": stats.min_rsrp,
         "max_rsrp": stats.max_rsrp,
-
         "avg_sinr": float(stats.avg_sinr) if stats.avg_sinr is not None else None,
         "min_sinr": stats.min_sinr,
         "max_sinr": stats.max_sinr,
-
-        "avg_throughput": float(stats.avg_throughput)
-        if stats.avg_throughput is not None
-        else None,
-        "max_throughput": float(stats.max_throughput)
-        if stats.max_throughput is not None
-        else None,
-
+        "avg_throughput": float(stats.avg_throughput) if stats.avg_throughput is not None else None,
+        "max_throughput": float(stats.max_throughput) if stats.max_throughput is not None else None,
         "network_distribution": network_dist,
         "band_distribution": band_dist,
         "measurements_by_hour": hour_dist,
     }
+
 
 @router.get("/analysis/propagation")
 def get_propagation_map(
@@ -431,7 +405,7 @@ def get_propagation_map(
     android_id: str | None = None,
     session_id: str | None = None,
     network_type: str | None = None,
-    resolution: int = Query(default=50, le=100),
+    resolution: int = Query(default=100, le=100),
 ):
     return propagation_map(
         db=db,

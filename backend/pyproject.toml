@@ -113,4 +113,5 @@ ignore = [
   "PLR0915",
   "T201",
 ]
-"backend/app/analytics.py" = ["PLR0913", "S608"]
+"backend/app/analytics.py" = ["PLR0913", "S608", "DTZ003"]
+"backend/app/routes.py" = ["PLR0913", "ARG001", "DTZ003"]
