@@ -1,0 +1,61 @@
+.phones-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+}
+
+.phone-detail {
+  padding: 18px;
+}
+
+.phone-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.phone-title h2 {
+  margin: 0;
+}
+
+.phone-title p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.phone-main-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.phone-main-grid .leaflet-map-wrapper {
+  height: 1fr;
+}
+
+.phone-kpi-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.parameter-empty {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.parameter-empty p {
+  margin: auto;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}

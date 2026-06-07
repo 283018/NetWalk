@@ -11,7 +11,7 @@ dependencies = [
   "pydantic>=2.13.0",
   "pydantic-settings>=2.13.1",
   "sqlalchemy>=2.0.49",
-  "uvicorn>=0.44.0",
+  "uvicorn>=0.44.0"
 ]
 
 [project.optional-dependencies]
@@ -113,3 +113,4 @@ ignore = [
   "PLR0915",
   "T201",
 ]
+"backend/app/analytics.py" = ["PLR0913", "S608"]

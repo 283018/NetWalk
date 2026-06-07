@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from geoalchemy2 import functions as geo_func
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
+from app.analytics import propagation_map
 
 from app import models, schemas
 from app.analytics import (
@@ -422,3 +423,21 @@ def get_measurements_stats(
         "band_distribution": band_dist,
         "measurements_by_hour": hour_dist,
     }
+
+@router.get("/analysis/propagation")
+def get_propagation_map(
+    db: DbSession,
+    parameter: str = Query(default="rsrp"),
+    android_id: str | None = None,
+    session_id: str | None = None,
+    network_type: str | None = None,
+    resolution: int = Query(default=50, le=100),
+):
+    return propagation_map(
+        db=db,
+        parameter=parameter,
+        android_id=android_id,
+        session_id=session_id,
+        network_type=network_type,
+        resolution=resolution,
+    )

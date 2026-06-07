@@ -1,0 +1,34 @@
+.last-session {
+  padding: 18px;
+}
+
+.last-grid {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(4, 1fr);
+  gap: 12px;
+}
+
+.last-grid > div {
+  background: #f8fafc;
+  border: 1px solid #e5ebf3;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.last-grid strong {
+  display: block;
+  font-size: 22px;
+  color: #0f172a;
+  margin-top: 8px;
+}
+
+.session-info strong {
+  overflow-wrap: anywhere;
+}
+
+.session-info small {
+  display: block;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 11px;
+}
