@@ -92,6 +92,16 @@ data class ThroughputPoint(
     val throughputMbps: Double,
 )
 
+data class RttPoint(
+    val timeEnd: Double,
+    val rtt: Double,
+)
+
+data class RttVarPoint(
+    val timeEnd: Double,
+    val rttvar: Double,
+)
+
 data class IperfParsed(
     val isUdp: Boolean,
     val throughputMbps: Double?,
@@ -107,6 +117,9 @@ data class IperfParsed(
     val testDuration: Double?,
     val retransmits: Long?, // TCP specific
     val throughputTimeline: List<ThroughputPoint>,
+    // timelines for calculating proper jitter in tcp
+    val rttTimeline: List<RttPoint>,
+    val rttVarTimeline: List<RttVarPoint>,
 )
 
 fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
@@ -132,6 +145,9 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
         val isUdp = protocol?.equals("UDP", ignoreCase = true) == true
 
         val timelinePoints = mutableListOf<ThroughputPoint>()
+        val rttPoints = mutableListOf<RttPoint>()
+        val rttVarPoints = mutableListOf<RttVarPoint>()
+
         val intervals = json["intervals"]?.jsonArray
 
         intervals?.forEach { intervalElement ->
@@ -147,6 +163,17 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
                 if (timeEnd != null && bps != null) {
                     val mbps = bps / 1_000_000.0
                     timelinePoints.add(ThroughputPoint(timeEnd, mbps))
+                }
+            }
+            val firstStream = intervalObj["streams"]?.jsonArray?.firstOrNull()?.jsonObject
+            if (firstStream != null) {
+                val timeEnd = firstStream["end"]?.jsonPrimitive?.doubleOrNull
+                val rtt = firstStream["rtt"]?.jsonPrimitive?.doubleOrNull
+                val rttvar = firstStream["rttvar"]?.jsonPrimitive?.doubleOrNull
+
+                if (timeEnd != null) {
+                    if (rtt != null) rttPoints.add(RttPoint(timeEnd, rtt))
+                    if (rttvar != null) rttVarPoints.add(RttVarPoint(timeEnd, rttvar))
                 }
             }
         }
@@ -184,6 +211,8 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
                 ?.jsonPrimitive
                 ?.longOrNull,
             throughputTimeline = timelinePoints,
+            rttTimeline = rttPoints,
+            rttVarTimeline = rttVarPoints,
         )
     } catch (_: Exception) {
         null
