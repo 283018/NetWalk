@@ -17,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +49,9 @@ val dlColor = Color(0xFF2196F3)
 
 @Composable
 fun IperfLogScreen(viewModel: NetworkViewModel) {
+    val settingsState by viewModel.uiSettingsState.collectAsState()
+    val configuredTimeSec = settingsState.iperfTime.toIntOrNull() ?: 10
+
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
     ) {
@@ -64,6 +69,12 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
         ) {
             Text("Run Test Now")
         }
+        Text(
+            text = "Skonfigurowany czas testu: ${configuredTimeSec}s (łącznie ~${configuredTimeSec * 2}s)",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.LightGray,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
 
         val lastUlTimeline = viewModel.lastUlTimeline
         val lastDlTimeline = viewModel.lastDlTimeline
@@ -82,7 +93,7 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
             ) {
                 if (lastUlTimeline.isNotEmpty()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("Wysyłanie (Uplink) ↑", style = MaterialTheme.typography.labelSmall, color = Color.Green)
+                        Text("Wysyłanie (Uplink)", style = MaterialTheme.typography.labelSmall, color = Color.Green)
                         IperfMiniChart(
                             points = lastUlTimeline,
                             lineColor = Color.Green,
@@ -93,7 +104,7 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
 
                 if (lastDlTimeline.isNotEmpty()) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("Pobieranie (Downlink) ↓", style = MaterialTheme.typography.labelSmall, color = dlColor)
+                        Text("Pobieranie (Downlink)", style = MaterialTheme.typography.labelSmall, color = dlColor)
                         IperfMiniChart(
                             points = lastDlTimeline,
                             lineColor = dlColor,
@@ -132,11 +143,13 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
                         Text(
                             text = "↑ ${entry.ulthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
                             color = Color.Green,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                         )
                         Text(
                             text = "↓ ${entry.dlthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
                             color = dlColor,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                         )
                         Text(
