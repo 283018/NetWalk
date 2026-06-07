@@ -13,6 +13,7 @@ import android.telephony.TelephonyManager
 import androidx.annotation.RequiresPermission
 import androidx.core.content.ContextCompat
 import edu.pwr.zpi.netwalk.iperf.IperfParsed
+import edu.pwr.zpi.netwalk.iperf.RttPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -108,14 +109,9 @@ data class MeasurementItem(
         battery_temp = system.battery_temp,
         os_version = system.os_version,
         //
-        // TODO: fix udp latency and jitter
         ul_throughput_mbps = iperfUl?.throughputMbps,
         ul_latency_ms = iperfUl?.meanRtt,
-        ul_jitter_ms = if (iperfUl?.maxRtt != null && iperfUl.minRtt != null) {
-            (iperfUl.maxRtt - iperfUl.minRtt)
-        } else {
-            null
-        },
+        ul_jitter_ms = iperfUl?.jitterMs ?: calculateTcpJitterMs(iperfUl?.rttTimeline),
         ul_mean_rtt = iperfUl?.meanRtt,
         ul_min_rtt = iperfUl?.minRtt,
         ul_max_rtt = iperfUl?.maxRtt,
@@ -125,11 +121,7 @@ data class MeasurementItem(
         //
         dl_throughput_mbps = iperfDl?.throughputMbps,
         dl_latency_ms = iperfDl?.meanRtt,
-        dl_jitter_ms = if (iperfDl?.maxRtt != null && iperfDl.minRtt != null) {
-            (iperfDl.maxRtt - iperfDl.minRtt)
-        } else {
-            null
-        },
+        dl_jitter_ms = iperfDl?.jitterMs ?: calculateTcpJitterMs(iperfDl?.rttTimeline),
         dl_mean_rtt = iperfDl?.meanRtt,
         dl_min_rtt = iperfDl?.minRtt,
         dl_max_rtt = iperfDl?.maxRtt,
@@ -163,6 +155,24 @@ data class MeasurementItem(
             } catch (e: Exception) {
                 null
             }
+
+        // calculating jitter according to RFC 3550
+        private fun calculateTcpJitterMs(rttTimeline: List<RttPoint>?): Double? {
+            if (rttTimeline.isNullOrEmpty() || rttTimeline.size < 2) return null
+
+            var calculatedJitter = 0.0
+
+            for (i in 1 until rttTimeline.size) {
+                val currentRtt = rttTimeline[i].rtt
+                val previousRtt = rttTimeline[i - 1].rtt
+
+                val delta = kotlin.math.abs(currentRtt - previousRtt)
+                calculatedJitter += (delta - calculatedJitter) / 16.0
+            }
+
+            // iperf3 RTT values are in microseconds; convert to milliseconds
+            return calculatedJitter / 1000.0
+        }
     }
 }
 
