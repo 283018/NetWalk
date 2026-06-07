@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 import gzip
 import json
 from datetime import datetime
@@ -14,18 +15,22 @@ from app.analytics import (
     average_signal,
     device_sessions,
     get_heatmap_points,
+    get_high_cpu_threshold,
+    get_uplink_downlink_stats,
     kpi_stats,
     last_measurement,
     list_devices,
+    measurements_by_cpu_category,
     propagation_map,
 )
 from app.database import get_db
+from app.schemas import PaginatedResponse, MeasurementResponse
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def measurement_filters(
+def measurement_filters(    # noqa: PLR0913
     query,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -41,6 +46,8 @@ def measurement_filters(
     max_latitude: float | None = None,
     min_longitude: float | None = None,
     max_longitude: float | None = None,
+    min_host_cpu: float | None = None,
+    max_host_cpu: float | None = None,
 ):
     if session_id:
         query = query.filter(models.Measurement.session_id == session_id)
@@ -91,6 +98,12 @@ def measurement_filters(
             )
         )
 
+    if min_host_cpu is not None:
+        query = query.filter(models.Measurement.host_cpu >= min_host_cpu)
+
+    if max_host_cpu is not None:
+        query = query.filter(models.Measurement.host_cpu <= max_host_cpu)
+
     return query
 
 
@@ -100,17 +113,22 @@ def health():
 
 
 @router.get("/measurements", response_model=list[schemas.MeasurementResponse])
-def get_measurements(db: DbSession, limit: int = Query(default=100, le=1000)):
+def get_measurements(
+    db: DbSession,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
+):
     return (
         db.query(models.Measurement)
         .order_by(models.Measurement.measured_at.desc())
+        .offset(skip)
         .limit(limit)
         .all()
     )
 
 
 @router.get("/measurements/filtered", response_model=list[schemas.MeasurementResponse])
-def get_measurements_filtered(
+def get_measurements_filtered(  # noqa: PLR0913
     db: DbSession,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -126,7 +144,8 @@ def get_measurements_filtered(
     max_latitude: float | None = None,
     min_longitude: float | None = None,
     max_longitude: float | None = None,
-    limit: int = Query(default=100, le=1000),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
 ):
     query = db.query(models.Measurement)
 
@@ -148,7 +167,29 @@ def get_measurements_filtered(
         max_longitude=max_longitude,
     )
 
-    return query.order_by(models.Measurement.measured_at.desc()).limit(limit).all()
+    return (
+        query.order_by(models.Measurement.measured_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/measurements/paginated", response_model=schemas.PaginatedResponse[schemas.MeasurementResponse])
+def get_measurements_paginated(
+    db: DbSession,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
+):
+    total = db.query(func.count(models.Measurement.id)).scalar()
+    items = (
+        db.query(models.Measurement)
+        .order_by(models.Measurement.measured_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return schemas.PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
 @router.get("/analysis/average-signal")
@@ -166,7 +207,7 @@ def get_kpi(
 
 
 @router.get("/analysis/heatmap")
-def get_heatmap(
+def get_heatmap(    # noqa: PLR0913
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     session_id: str | None = None,
@@ -260,16 +301,16 @@ async def create_measurements_batch(request: Request, db: DbSession):
 
 
 @router.post("/sessions/start", response_model=schemas.SessionResponse)
-def start_session(db: DbSession):
+def start_session():
     new_session_id = uuid4()
     return schemas.SessionResponse(
         session_id=new_session_id,
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(datetime.UTC),
     )
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(session_id: str, db: DbSession):
+def stop_session(session_id: str):
     return {"status": "ok", "message": f"Session {session_id} stopped"}
 
 
@@ -301,7 +342,7 @@ def get_sessions(db: DbSession):
 
 
 @router.get("/measurements/statistics", response_model=schemas.StatisticsResponse)
-def get_measurements_stats(
+def get_measurements_stats( # noqa: PLR0913
     db: DbSession,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
@@ -398,8 +439,71 @@ def get_measurements_stats(
     }
 
 
+@router.get("/measurements/analysis-cpu-filter", response_model=schemas.PaginatedResponse[schemas.MeasurementResponse])
+def get_measurements_with_cpu_filter(
+    db: DbSession,
+    cpu_filter: str = Query(default="all"),  # "all", "without_high", "only_high"
+    cpu_threshold: float = Query(default=50.0),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=1000),
+):
+    """
+    cpu_filter:
+    - "all": wszystkie pomiary
+    - "without_high": bez pomiarów ze zbyt wysokim CPU
+    - "only_high": tylko pomiary ze zbyt wysokim CPU
+    """
+    query = db.query(models.Measurement)
+
+    if cpu_filter == "without_high":
+        query = query.filter(models.Measurement.host_cpu < cpu_threshold)
+    elif cpu_filter == "only_high":
+        query = query.filter(models.Measurement.host_cpu >= cpu_threshold)
+
+    total = query.count()
+
+    items = (
+        query.order_by(models.Measurement.measured_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
+
+    return PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
+
+@router.get("/analysis/kpi-by-cpu")
+def get_kpi_with_cpu_filter(
+    db: DbSession,
+    cpu_filter: str = Query(default="all"),
+    cpu_threshold: float = Query(default=50.0),
+):
+    """KPI z uwzględnieniem filtrowania CPU"""
+    query = db.query(models.Measurement)
+
+    if cpu_filter == "without_high":
+        query = query.filter(models.Measurement.host_cpu < cpu_threshold)
+    elif cpu_filter == "only_high":
+        query = query.filter(models.Measurement.host_cpu >= cpu_threshold)
+
+    result = query.with_entities(
+        func.avg(models.Measurement.throughput_mbps).label("avg_throughput"),
+        func.avg(models.Measurement.latency_ms).label("avg_latency"),
+        func.avg(models.Measurement.rsrp).label("avg_rsrp"),
+    ).first()
+
+    return {
+        "cpu_filter": cpu_filter,
+        "cpu_threshold": cpu_threshold,
+        "avg_throughput": float(result.avg_throughput) if result and result.avg_throughput else None,
+        "avg_latency": float(result.avg_latency) if result and result.avg_latency else None,
+        "avg_rsrp": float(result.avg_rsrp) if result and result.avg_rsrp else None,
+    }
+
+
 @router.get("/analysis/propagation")
-def get_propagation_map(
+def get_propagation_map( # noqa: PLR0913
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     android_id: str | None = None,
@@ -415,3 +519,18 @@ def get_propagation_map(
         network_type=network_type,
         resolution=resolution,
     )
+
+@router.get("/analysis/ul-dl-stats")
+def get_uplink_downlink_stats_endpoint(
+    db: DbSession,
+    session_id: str | None = None,
+):
+    return get_uplink_downlink_stats(db, session_id)   # bez importu wewnątrz
+
+
+@router.get("/analysis/cpu-threshold")
+def get_cpu_threshold_endpoint(db: DbSession):
+    return {
+        "threshold": get_high_cpu_threshold(db),
+        "categories": measurements_by_cpu_category(db)
+    }
