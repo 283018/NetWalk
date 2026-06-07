@@ -108,6 +108,7 @@ fun SettingsScreen(
             placeholder = viewModel.defaults.iperfTime,
             isValid = ::isValidPositiveIntOrEmpty,
             errorText = "Must be a positive number.",
+            explanationText = "Duration of one-way test, final time may slightly exceed 2x of given value.",
         )
         SettingStringField(
             label = "Iperf Streams (-P)",
