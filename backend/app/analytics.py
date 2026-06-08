@@ -322,22 +322,19 @@ def propagation_map(
     }
 
 
-def get_high_cpu_threshold(db: Session):
-    """Oblicz próg 'wysokiego CPU' na podstawie percentyla"""
-    result = db.query(
-        func.percentile_cont(0.75).within_group(Measurement.host_cpu)
-    ).scalar()
-    return float(result) if result else 50.0
+def get_high_cpu_threshold() -> float:
+    # Stały próg wysokiego obciążenia CPU
+    return 95.0
 
 
 def measurements_by_cpu_category(db: Session, threshold: float | None = None):
     """Zwróć pomiary pogrupowane: normalne, wysokie CPU"""
     if threshold is None:
         threshold = get_high_cpu_threshold(db)
-    
+
     normal = db.query(Measurement).filter(Measurement.host_cpu < threshold).count()
     high = db.query(Measurement).filter(Measurement.host_cpu >= threshold).count()
-    
+
     return {"normal": normal, "high": high, "threshold": threshold}
 
 
