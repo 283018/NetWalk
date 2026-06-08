@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 from functools import cached_property
-from typing import cast, Generic, TypeVar
+from typing import Generic, TypeVar, cast
 from uuid import UUID
 
 from geoalchemy2.elements import WKBElement
@@ -181,10 +181,7 @@ class MeasurementResponse(MeasurementBase):
     id: int
     location: WKBElement | None = Field(default=None, exclude=True)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True
-    )
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 
     @computed_field
     @property
@@ -251,7 +248,7 @@ class StatisticsResponse(BaseModel):
     avg_throughput: float | None
     max_throughput: float | None
 
-    #  wykresy i rozkłady
+    # wykresy i rozkłady
     network_distribution: dict[str, int]
     band_distribution: dict[str, int]
     measurements_by_hour: dict[int, int]
@@ -262,7 +259,9 @@ class SessionResponse(BaseModel):
     session_id: UUID
     started_at: datetime
 
+
 T = TypeVar("T")
+
 
 class PaginatedResponse(BaseModel, Generic[T]):
     items: list[T]

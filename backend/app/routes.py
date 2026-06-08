@@ -1,7 +1,7 @@
 # ruff: noqa: I001
 import gzip
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Annotated
 from uuid import uuid4
 
@@ -24,13 +24,12 @@ from app.analytics import (
     propagation_map,
 )
 from app.database import get_db
-from app.schemas import PaginatedResponse, MeasurementResponse
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def measurement_filters(    # noqa: PLR0913
+def measurement_filters(  # noqa: PLR0913
     query,
     session_id: str | None = None,
     android_id: str | None = None,
@@ -167,15 +166,12 @@ def get_measurements_filtered(  # noqa: PLR0913
         max_longitude=max_longitude,
     )
 
-    return (
-        query.order_by(models.Measurement.measured_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    return query.order_by(models.Measurement.measured_at.desc()).offset(skip).limit(limit).all()
 
 
-@router.get("/measurements/paginated", response_model=schemas.PaginatedResponse[schemas.MeasurementResponse])
+@router.get(
+    "/measurements/paginated", response_model=schemas.PaginatedResponse[schemas.MeasurementResponse]
+)
 def get_measurements_paginated(
     db: DbSession,
     skip: int = Query(default=0, ge=0),
@@ -210,7 +206,7 @@ def get_kpi(
 
 
 @router.get("/analysis/heatmap")
-def get_heatmap(    # noqa: PLR0913
+def get_heatmap(  # noqa: PLR0913
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     session_id: str | None = None,
@@ -308,7 +304,7 @@ def start_session():
     new_session_id = uuid4()
     return schemas.SessionResponse(
         session_id=new_session_id,
-        started_at=datetime.now(datetime.UTC),
+        started_at=datetime.now(tz=UTC),
     )
 
 
@@ -345,7 +341,7 @@ def get_sessions(db: DbSession):
 
 
 @router.get("/measurements/statistics", response_model=schemas.StatisticsResponse)
-def get_measurements_stats( # noqa: PLR0913
+def get_measurements_stats(  # noqa: PLR0913
     db: DbSession,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
@@ -442,7 +438,10 @@ def get_measurements_stats( # noqa: PLR0913
     }
 
 
-@router.get("/measurements/analysis-cpu-filter", response_model=schemas.PaginatedResponse[schemas.MeasurementResponse])
+@router.get(
+    "/measurements/analysis-cpu-filter",
+    response_model=schemas.PaginatedResponse[schemas.MeasurementResponse],
+)
 def get_measurements_with_cpu_filter(
     db: DbSession,
     cpu_filter: str = Query(default="all"),  # "all", "without_high", "only_high"
@@ -465,16 +464,12 @@ def get_measurements_with_cpu_filter(
 
     total = query.count()
 
-    items = (
-        query.order_by(models.Measurement.measured_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    items = query.order_by(models.Measurement.measured_at.desc()).offset(skip).limit(limit).all()
 
     serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
 
     return schemas.PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
+
 
 @router.get("/analysis/kpi-by-cpu")
 def get_kpi_with_cpu_filter(
@@ -499,14 +494,16 @@ def get_kpi_with_cpu_filter(
     return {
         "cpu_filter": cpu_filter,
         "cpu_threshold": cpu_threshold,
-        "avg_throughput": float(result.avg_throughput) if result and result.avg_throughput else None,
+        "avg_throughput": float(result.avg_throughput)
+        if result and result.avg_throughput
+        else None,
         "avg_latency": float(result.avg_latency) if result and result.avg_latency else None,
         "avg_rsrp": float(result.avg_rsrp) if result and result.avg_rsrp else None,
     }
 
 
 @router.get("/analysis/propagation")
-def get_propagation_map( # noqa: PLR0913
+def get_propagation_map(  # noqa: PLR0913
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     android_id: str | None = None,
@@ -523,17 +520,15 @@ def get_propagation_map( # noqa: PLR0913
         resolution=resolution,
     )
 
+
 @router.get("/analysis/ul-dl-stats")
 def get_uplink_downlink_stats_endpoint(
     db: DbSession,
     session_id: str | None = None,
 ):
-    return get_uplink_downlink_stats(db, session_id)   # bez importu wewnątrz
+    return get_uplink_downlink_stats(db, session_id)  # bez importu wewnątrz
 
 
 @router.get("/analysis/cpu-threshold")
 def get_cpu_threshold_endpoint(db: DbSession):
-    return {
-        "threshold": get_high_cpu_threshold(db),
-        "categories": measurements_by_cpu_category(db)
-    }
+    return {"threshold": get_high_cpu_threshold(), "categories": measurements_by_cpu_category(db)}

@@ -1,0 +1,14 @@
+{
+  "measurements": [{
+    "session_id": "b5653af6-6f78-4b66-a74a-5ac9cb20d7e7",
+    "android_id": "e17ee9c42e1bdbd8",
+    "cid": 47108,
+    "measured_at": "2026-06-07T03:24:03.387Z",
+    "latitude": 37.4219983,
+    "longitude": -122.084,
+    "rsrp": -44, "rsrq": -3, "sinr": 3,
+    "network_type": "10", "tac": 8514, "cell_id": "0",
+    "radio_frequency": 7, "band": 1, "bandwidth": null,
+    "battery_level": 100, "battery_temp": 25.0, "os_version": "Android 14"
+  }]
+}
