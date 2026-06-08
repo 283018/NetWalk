@@ -32,7 +32,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadDashboard() {
       const lte = await fetchJson("/analysis/kpi?network_type=LTE", EMPTY_KPI);
-      const fiveG = await fetchJson("/analysis/kpi?network_type=10", EMPTY_KPI);
+      const fiveG = await fetchJson("/analysis/kpi?network_type=5G", EMPTY_KPI);
       const last = await fetchJson("/analysis/last-measurement", null);
 
       setLteKpi(lte || EMPTY_KPI);
