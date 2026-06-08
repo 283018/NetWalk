@@ -60,6 +60,27 @@ services:
     restart: always
     networks:
       - netwalk-network
+  iperf3-2:
+    image: networkstatic/iperf3
+    container_name: netwalk-iperf-2
+    ports:
+      - "5202:5201/tcp"
+      - "5202:5201/udp"
+    command: [ "-s" ]
+    restart: always
+    networks:
+      - netwalk-network
+
+  iperf3-3:
+    image: networkstatic/iperf3
+    container_name: netwalk-iperf-3
+    ports:
+      - "5203:5201/tcp"
+      - "5203:5201/udp"
+    command: [ "-s" ]
+    restart: always
+    networks:
+      - netwalk-network
 
   tests:
     build:
