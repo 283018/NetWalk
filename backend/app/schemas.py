@@ -1,6 +1,7 @@
 from datetime import datetime
+from enum import StrEnum
 from functools import cached_property
-from typing import cast
+from typing import Generic, TypeVar, cast
 from uuid import UUID
 
 from geoalchemy2.elements import WKBElement
@@ -10,6 +11,12 @@ from shapely.geometry import Point
 
 LAT_RANGE = 90
 LON_RANGE = 180
+
+
+class Protocol(StrEnum):
+    TCP = "TCP"
+    UDP = "UDP"
+    MIXED = "MIXED"
 
 
 class MeasurementBase(BaseModel):
@@ -41,6 +48,28 @@ class MeasurementBase(BaseModel):
     host_cpu: float | None = None
     remote_cpu: float | None = None
     retransmits: float | None = None
+    protocol: Protocol | None = None
+    ul_throughput_mbps: float | None = None
+    ul_latency_ms: float | None = None
+    ul_jitter_ms: float | None = None
+    ul_mean_rtt: float | None = None
+    ul_min_rtt: float | None = None
+    ul_max_rtt: float | None = None
+    ul_retransmits: int | None = None
+    ul_lost_packets: int | None = None
+    ul_lost_percent: float | None = None
+    dl_throughput_mbps: float | None = None
+    dl_latency_ms: float | None = None
+    dl_jitter_ms: float | None = None
+    dl_mean_rtt: float | None = None
+    dl_min_rtt: float | None = None
+    dl_max_rtt: float | None = None
+    dl_retransmits: int | None = None
+    dl_lost_packets: int | None = None
+    dl_lost_percent: float | None = None
+    test_carrier_mode: str | None = None
+    cells_involved: str | None = None
+    primary_cell_id: str | None = None
 
 
 class MeasurementCreate(MeasurementBase):
@@ -152,10 +181,7 @@ class MeasurementResponse(MeasurementBase):
     id: int
     location: WKBElement | None = Field(default=None, exclude=True)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        arbitrary_types_allowed=True,
-    )
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 
     @computed_field
     @property
@@ -222,7 +248,7 @@ class StatisticsResponse(BaseModel):
     avg_throughput: float | None
     max_throughput: float | None
 
-    #  wykresy i rozkłady
+    # wykresy i rozkłady
     network_distribution: dict[str, int]
     band_distribution: dict[str, int]
     measurements_by_hour: dict[int, int]
@@ -232,3 +258,13 @@ class StatisticsResponse(BaseModel):
 class SessionResponse(BaseModel):
     session_id: UUID
     started_at: datetime
+
+
+T = TypeVar("T")
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    skip: int
+    limit: int
