@@ -17,6 +17,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,13 +39,19 @@ import edu.pwr.zpi.netwalk.ui.SettingsScreen
 
 data class IperfLogEntry(
     val timestamp: String,
-    val throughputMbps: Double?,
+    val ulthroughputMbps: Double?,
+    val dlthroughputMbps: Double?,
     val meanRtt: Double?,
     val retransmits: Long?,
 )
 
+val dlColor = Color(0xFF2196F3)
+
 @Composable
 fun IperfLogScreen(viewModel: NetworkViewModel) {
+    val settingsState by viewModel.uiSettingsState.collectAsState()
+    val configuredTimeSec = settingsState.iperfTime.toIntOrNull() ?: 10
+
     Column(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp),
     ) {
@@ -61,23 +69,50 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
         ) {
             Text("Run Test Now")
         }
+        Text(
+            text = "Skonfigurowany czas testu: ${configuredTimeSec}s (łącznie ~${configuredTimeSec * 2}s)",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.LightGray,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
 
-        val lastTimeline = viewModel.lastTestTimeline
+        val lastUlTimeline = viewModel.lastUlTimeline
+        val lastDlTimeline = viewModel.lastDlTimeline
 
-        if (lastTimeline.isNotEmpty()) {
+        if (lastDlTimeline.isNotEmpty() || lastUlTimeline.isNotEmpty()) {
             Text(
                 text = "Ostatni test - przepustowość w czasie:",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(bottom = 4.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
             )
-            IperfMiniChart(
-                points = lastTimeline,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp)
-                    .padding(bottom = 16.dp),
-            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (lastUlTimeline.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Wysyłanie (Uplink)", style = MaterialTheme.typography.labelSmall, color = Color.Green)
+                        IperfMiniChart(
+                            points = lastUlTimeline,
+                            lineColor = Color.Green,
+                            modifier = Modifier.fillMaxWidth().height(130.dp),
+                        )
+                    }
+                }
+
+                if (lastDlTimeline.isNotEmpty()) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Pobieranie (Downlink)", style = MaterialTheme.typography.labelSmall, color = dlColor)
+                        IperfMiniChart(
+                            points = lastDlTimeline,
+                            lineColor = dlColor,
+                            modifier = Modifier.fillMaxWidth().height(130.dp),
+                        )
+                    }
+                }
+            }
         }
 
         Text(
@@ -106,8 +141,15 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
-                            text = "↓ ${entry.throughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
+                            text = "↑ ${entry.ulthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
                             color = Color.Green,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            text = "↓ ${entry.dlthroughputMbps?.let { "%.2f Mbps".format(it) } ?: "-"}",
+                            color = dlColor,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                         )
                         Text(
@@ -131,8 +173,11 @@ fun IperfLogScreen(viewModel: NetworkViewModel) {
 @Composable
 fun IperfMiniChart(
     points: List<ThroughputPoint>,
+    lineColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    if (points.isEmpty()) return
+
     val maxSeconds = points.maxOf { it.seconds }.toFloat()
     val maxThroughput = (points.maxOf { it.throughputMbps } * 1.1f).toFloat().coerceAtLeast(1f)
 
@@ -214,7 +259,7 @@ fun IperfMiniChart(
 
         drawPath(
             path = path,
-            color = Color.Green,
+            color = lineColor,
             style = Stroke(width = 4f),
         )
     }

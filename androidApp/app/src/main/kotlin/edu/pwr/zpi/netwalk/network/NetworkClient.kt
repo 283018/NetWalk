@@ -17,6 +17,28 @@ class NetworkClient(
         encodeDefaults = false
     }
 
+    suspend fun checkHealth(): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = URL("$baseUrl/health")
+
+                val connection = url.openConnection() as HttpURLConnection
+                connection.apply {
+                    requestMethod = "GET"
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                }
+
+                if (connection.responseCode in 200..299) {
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("HTTP ${connection.responseCode} on /health"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
     suspend fun sendFullUpdate(data: MeasurementRequest): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
