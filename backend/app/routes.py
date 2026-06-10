@@ -532,3 +532,14 @@ def get_uplink_downlink_stats_endpoint(
 @router.get("/analysis/cpu-threshold")
 def get_cpu_threshold_endpoint(db: DbSession):
     return {"threshold": get_high_cpu_threshold(), "categories": measurements_by_cpu_category(db)}
+
+
+@router.get("/analysis/route-anomaly")
+def get_route_anomaly_endpoint(
+    db: DbSession,
+    lat: float = Query(..., description="Szerokość geograficzna środka trasy"),
+    lon: float = Query(..., description="Długość geograficzna środka trasy"),
+    radius_km: float = Query(default=1.2, description="Promień wyszukiwania anomalii w km")
+):
+    from app.analytics import get_route_anomaly
+    return get_route_anomaly(db, lat=lat, lon=lon, radius_km=radius_km)

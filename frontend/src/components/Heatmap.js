@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Circle, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, Popup, Polyline, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./Heatmap.css";
 
@@ -46,11 +46,30 @@ function getColor(value, parameter) {
   return "#000000";
 }
 
+// Komponent pomocniczy do nasłuchiwania kliknięć na mapie
+function MapClickHandler({ onMapClick, active }) {
+  useMapEvents({
+    click: (e) => {
+      if (active) {
+        onMapClick(e.latlng);
+      }
+    },
+  });
+  return null;
+}
+
 export default function Heatmap({ title = "Mapa pomiarów", androidId = null, sessionId = null }) {
   const [layer, setLayer] = useState("rsrp");
   const [measurements, setMeasurements] = useState([]);
   const [viewMode, setViewMode] = useState("measurements");
   const [propagationData, setPropagationData] = useState([]);
+
+  // Stany dla algorytmu planowania tras
+  const [startPoint, setStartPoint] = useState(null);
+  const [endPoint, setEndPoint] = useState(null);
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [routeDistance, setRouteDistance] = useState(null);
+  const [routeStatus, setRouteStatus] = useState("");
 
   useEffect(() => {
     async function loadMeasurements() {
@@ -81,6 +100,77 @@ export default function Heatmap({ title = "Mapa pomiarów", androidId = null, se
     loadPropagation();
   }, [viewMode, layer, androidId, sessionId]);
 
+  // Inteligentna funkcja wyznaczania tras z filtrowaniem po stronie BACKENDU
+  const handleMapClick = async (latlng) => {
+    if (!startPoint) {
+      setStartPoint([latlng.lat, latlng.lng]);
+      setRouteStatus("📍 Wybrano Start. Kliknij punkt końcowy.");
+    } else if (!endPoint) {
+      const end = [latlng.lat, latlng.lng];
+      setEndPoint(end);
+      setRouteStatus("🔍 Backend analizuje obszar w poszukiwaniu słabego sygnału...");
+
+      // Obliczamy punkt środkowy
+      const midLat = (startPoint[0] + end[0]) / 2;
+      const midLon = (startPoint[1] + end[1]) / 2;
+
+      // FILTROWANIE PO STRONIE BACKENDU:
+      // Wysyłamy zapytanie do Dolomirra, podając środek i promień poszukiwań anomalii (1.2 km)
+      const backendQuery = new URLSearchParams({
+        lat: midLat.toString(),
+        lon: midLon.toString(),
+        radius_km: "1.2"
+      });
+
+      // Sprawdzamy czy backend ma dla nas anomalię (zły punkt)
+      const anomalyPoint = await fetchJson(`/analysis/route-anomaly?${backendQuery.toString()}`, null);
+
+      let url = "";
+      // Jeśli backend przefiltrował dane i zwrócił nam punkt o słabym sygnale
+      if (anomalyPoint && (anomalyPoint.latitude || anomalyPoint.location_lat)) {
+        const aLat = anomalyPoint.latitude ?? anomalyPoint.location_lat;
+        const aLon = anomalyPoint.longitude ?? anomalyPoint.location_lon;
+        
+        // Modyfikujemy trasę OSRM przez punkt z backendu
+        url = `https://router.project-osrm.org/route/v1/driving/${startPoint[1]},${startPoint[0]};${aLon},${aLat};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+        setRouteStatus("🛣️ Optymalizacja: Backend wykrył słaby sygnał! Trasa skorygowana o punkt diagnostyczny.");
+      } else {
+        // Jeśli backend nic nie znalazł w tym korytarzu -> jedź najkrótszą trasą
+        url = `https://router.project-osrm.org/route/v1/driving/${startPoint[1]},${startPoint[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+        setRouteStatus("🟢 Trasa rutynowa: Brak anomalii w pobliżu. Wyznaczono najkrótszą drogę.");
+      }
+
+      // Pobieramy geometrię drogową z OSRM
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.routes && data.routes.length > 0) {
+          const coords = data.routes[0].geometry.coordinates.map((c) => [c[1], c[0]]);
+          setRouteCoords(coords);
+          setRouteDistance((data.routes[0].distance / 1000).toFixed(2));
+        }
+      } catch (error) {
+        console.error("Błąd OSRM:", error);
+        setRouteStatus("❌ Błąd silnika map OSRM.");
+      }
+    } else {
+      // Reset przy kolejnym kliknięciu
+      setStartPoint([latlng.lat, latlng.lng]);
+      setEndPoint(null);
+      setRouteCoords([]);
+      setRouteDistance(null);
+      setRouteStatus("📍 Reset. Wybrano nowy Punkt Startowy.");
+    }
+  };
+
+  const clearRoute = () => {
+    setStartPoint(null);
+    setEndPoint(null);
+    setRouteCoords([]);
+    setRouteDistance(null);
+    setRouteStatus("");
+  };
+
   const getPointValue = (measurement) => {
     if (layer === "rsrp") return measurement.rsrp;
     if (layer === "rsrq") return measurement.rsrq;
@@ -108,7 +198,23 @@ export default function Heatmap({ title = "Mapa pomiarów", androidId = null, se
         >
           Propagacja
         </button>
+        <button
+          className={`view-toggle-btn routing${viewMode === "routing" ? " active" : ""}`}
+          onClick={() => setViewMode("routing")}
+        >
+          Trasa
+        </button>
       </div>
+
+      {/* Pasek statusu algorytmu tras */}
+      {viewMode === "routing" && (
+        <div style={{ padding: "10px", backgroundColor: "#f0f4f8", borderRadius: "8px", marginBottom: "12px", fontSize: "13px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{routeStatus || "📍 Kliknij na mapie, aby wybrać Punkt Startowy trasy."} {routeDistance && <strong>({routeDistance} km)</strong>}</span>
+            {startPoint && <button onClick={clearRoute} style={{ padding: "4px 8px", background: "#ef4444", color: "white", border: "0", borderRadius: "4px", cursor: "pointer" }}>Wyczyść</button>}
+          </div>
+        </div>
+      )}
 
       <div className="tabs">
         <button className={layer === "rsrp" ? "tab active" : "tab"} onClick={() => setLayer("rsrp")}>
@@ -128,6 +234,9 @@ export default function Heatmap({ title = "Mapa pomiarów", androidId = null, se
             attribution="OpenStreetMap contributors, CARTO"
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
+
+          {/* Obsługa kliknięć dla modułu tras */}
+          <MapClickHandler onMapClick={handleMapClick} active={viewMode === "routing"} />
 
           {viewMode === "measurements" &&
             measurements.map((measurement, index) => {
@@ -178,6 +287,15 @@ export default function Heatmap({ title = "Mapa pomiarów", androidId = null, se
                 }}
               />
             ))}
+
+          {/* RYSOWANIE TRASY */}
+          {viewMode === "routing" && (
+            <>
+              {startPoint && <Circle center={startPoint} radius={120} pathOptions={{ color: "#005aff", fillColor: "#005aff", fillOpacity: 0.8 }} />}
+              {endPoint && <Circle center={endPoint} radius={120} pathOptions={{ color: "#8b5cf6", fillColor: "#8b5cf6", fillOpacity: 0.8 }} />}
+              {routeCoords.length > 0 && <Polyline positions={routeCoords} pathOptions={{ color: "#005aff", weight: 5, opacity: 0.75, dashArray: "1, 5" }} />}
+            </>
+          )}
         </MapContainer>
 
         <div className="map-legend">

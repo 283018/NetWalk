@@ -104,3 +104,13 @@
   background: #3b82f6;
   color: white;
 }
+
+.view-toggle-btn.routing {
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+}
+
+.view-toggle-btn.routing.active {
+  background: #3b82f6;
+  color: white;
+}
