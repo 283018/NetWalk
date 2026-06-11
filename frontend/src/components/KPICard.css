@@ -1,0 +1,44 @@
+.kpi-card {
+  padding: 18px;
+}
+
+.kpi-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.kpi-content {
+  display: block;
+}
+
+.kpi-param-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.kpi-param {
+  border: 1px solid #dbe3ef;
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.kpi-param.active {
+  background: #005aff;
+  color: white;
+  border-color: #005aff;
+}
+
+.selected-row td {
+  color: #005aff;
+  font-weight: 700;
+}
+
+tbody tr {
+  cursor: pointer;
+}
