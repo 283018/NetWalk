@@ -2,6 +2,8 @@ package edu.pwr.zpi.netwalk.collector
 
 import android.content.Context
 import android.telephony.TelephonyManager
+import android.util.Log
+import edu.pwr.zpi.netwalk.collector.MeasurementConditionChecker
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
@@ -30,6 +32,7 @@ class DataCollector(
     private val shouldForceIperf: () -> Boolean,
     private val onForceIperfHandled: () -> Unit,
     private val onIperfRawResult: (String?, String?) -> Unit,
+    private val onScheduleIperfInCycles: (Int) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
@@ -38,6 +41,8 @@ class DataCollector(
 
     private val delayedIperfRequests = mutableListOf<Int>() // each item - how many cycles until iperf should run
     private var readyForcedRuns = 0 // if several requests comes at single cycle, keep them queued
+
+    private val conditionChecker = MeasurementConditionChecker()
 
     fun scheduleIperfInCycles(cycles: Int) {
         delayedIperfRequests.add(cycles.coerceAtLeast(1))
@@ -137,6 +142,21 @@ class DataCollector(
                             iperfUlRaw = iperfUploadResult,
                             iperfDlRaw = iperfDownloadResult,
                             measuredAtNow = now,
+                        )
+
+                        conditionChecker.check(
+                            measurements = request.measurements,
+                            // if we want to add server-side conditions it can be passed directly from viewModel
+                            params = MeasurementConditionParams(
+                                hostCpuThreshold = 95.0,
+                                hostCpuScheduleDelayCycles = 2,
+                                remoteCpuThreshold = 95.0,
+                                remoteCpuScheduleDelayCycles = 2,
+                            ),
+                            onHighCpuDetected = { item, cpu ->
+                                Log.d("NetWalk", "High CPU item: $item, cpu=$cpu")
+                            },
+                            onScheduleIperfInCycles = onScheduleIperfInCycles,
                         )
 
                         sendRequest(request)

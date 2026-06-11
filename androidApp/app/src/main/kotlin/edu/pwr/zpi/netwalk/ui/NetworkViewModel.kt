@@ -300,6 +300,9 @@ class NetworkViewModel(
                 parseIperfJsonSafe(it)?.throughputTimeline
             } ?: emptyList()
         },
+        onScheduleIperfInCycles = { cycles ->
+            requestIperfInCycles(cycles)
+        },
     )
 
     init {
