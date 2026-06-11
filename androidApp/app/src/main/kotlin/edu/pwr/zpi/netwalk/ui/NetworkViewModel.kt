@@ -17,6 +17,7 @@ import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
 import edu.pwr.zpi.netwalk.network.NetworkClient
+import edu.pwr.zpi.netwalk.network.PendingBatchStore
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.ui.IperfLogEntry
@@ -101,6 +102,8 @@ class NetworkViewModel(
     }
 
     private val flushMutex = Mutex()
+
+    private var batchStore: PendingBatchStore? = null
 
     // exposing specific settings in viewModel as flows
     // I know its ugly, but I dint know it will turn out like this :c
@@ -279,10 +282,7 @@ class NetworkViewModel(
                     val batchList = queuedMeasurements.toList()
                     queuedMeasurements.clear()
                     viewModelScope.launch {
-                        flushMutex.withLock {
-                            val batchRequest = MeasurementRequest(measurements = batchList)
-                            sendGzippedBatch(batchRequest)
-                        }
+                        saveAndFlush(MeasurementRequest(measurements = batchList))
                     }
                 }
             }
@@ -317,6 +317,8 @@ class NetworkViewModel(
         tm: TelephonyManager,
         context: Context,
     ) {
+        ensureBatchStore(context)
+
         if (passiveJobStarted) return
         passiveJobStarted = true
 
@@ -357,8 +359,7 @@ class NetworkViewModel(
                     queuedMeasurements.clear()
                     lastStatus = "Sending batch of ${batchRequest.measurements.size} measurements"
 
-                    sendGzippedBatch(batchRequest)
-                    // sendMeasurementRequest(batchRequest)
+                    saveAndFlush(batchRequest)
                 }
             }
         }
@@ -410,5 +411,51 @@ class NetworkViewModel(
         Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
 
         return finalArray
+    }
+
+    private fun ensureBatchStore(context: Context) {
+        if (batchStore == null) {
+            batchStore = PendingBatchStore(context.applicationContext)
+        }
+    }
+
+    private fun gzippedBytes(request: MeasurementRequest): ByteArray {
+        val jsonBytes = Json
+            .encodeToString(MeasurementRequest.serializer(), request)
+            .toByteArray(Charsets.UTF_8)
+
+        return ByteArrayOutputStream().use { bos ->
+            GZIPOutputStream(bos).use { gzip -> gzip.write(jsonBytes) }
+            bos.toByteArray()
+        }
+    }
+
+    private suspend fun trySendGzippedBytes(bytes: ByteArray): Boolean =
+        client?.sendGzippedUpdate(bytes)?.isSuccess == true
+
+    private suspend fun flushStoredBatches() {
+        val store = batchStore ?: return
+
+        val files = store.listFilesSorted()
+        for (file in files) {
+            val ok = trySendGzippedBytes(file.readBytes())
+            if (ok) {
+                store.delete(file)
+            } else {
+                lastStatus = "Batch send failed, cached for next send event."
+                return
+            }
+        }
+    }
+
+    private suspend fun saveAndFlush(request: MeasurementRequest) {
+        val store = batchStore ?: return
+
+        // save current batch first, so its never lost
+        store.save(gzippedBytes(request))
+
+        flushMutex.withLock {
+            flushStoredBatches()
+        }
     }
 }
