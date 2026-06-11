@@ -36,6 +36,25 @@ class DataCollector(
 
     private var lastSessionId: String? = null
 
+    private val delayedIperfRequests = mutableListOf<Int>() // each item - how many cycles until iperf should run
+    private var readyForcedRuns = 0 // if several requests comes at single cycle, keep them queued
+
+    fun scheduleIperfInCycles(cycles: Int) {
+        delayedIperfRequests.add(cycles.coerceAtLeast(1))
+    }
+
+    private fun tickIperfSchedule() {
+        if (delayedIperfRequests.isEmpty()) return
+
+        for (i in delayedIperfRequests.indices) {
+            delayedIperfRequests[i] -= 1
+        }
+
+        val dueCount = delayedIperfRequests.count { it <= 0 }
+        delayedIperfRequests.removeAll { it <= 0 }
+        readyForcedRuns += dueCount
+    }
+
     fun start(
         tm: TelephonyManager,
         context: Context,
@@ -69,18 +88,25 @@ class DataCollector(
                         }
 
                         val now = System.currentTimeMillis()
+
+                        tickIperfSchedule()
+
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
                         // TODO: add repeat with delay if cpu is too high
-                        var shouldRunIperf = now - lastIperfTime > currentIperfInterval
+                        var regularDue = now - lastIperfTime > currentIperfInterval
+                        val forcedDue = readyForcedRuns > 0
 
-                        if (shouldForceIperf()) {
-                            shouldRunIperf = true
-                            onForceIperfHandled()
-                        }
+                        var iperfUploadResult: String? = null
+                        var iperfDownloadResult: String? = null
 
-                        val (iperfUploadResult, iperfDownloadResult) = if (shouldRunIperf) {
+                        if (regularDue || forcedDue) {
+                            if (forcedDue) {
+                                readyForcedRuns -= 1
+                            }
+
                             lastIperfTime = now
-                            try {
+
+                            val (ul, dl) = try {
                                 withContext(Dispatchers.IO) {
                                     val ulResuls = withTimeoutOrNull(currentTimout) {
                                         // named args are prohibited in labdas
@@ -94,12 +120,13 @@ class DataCollector(
                             } catch (e: Exception) {
                                 Pair(null, null)
                             }
-                        } else {
-                            Pair(null, null)
-                        }
 
-                        if (iperfUploadResult != null || iperfDownloadResult != null) {
-                            onIperfRawResult(iperfUploadResult, iperfDownloadResult)
+                            iperfUploadResult = ul
+                            iperfDownloadResult = dl
+
+                            if (iperfUploadResult != null || iperfDownloadResult != null) {
+                                onIperfRawResult(iperfUploadResult, iperfDownloadResult)
+                            }
                         }
 
                         val request = networkData.toMeasurementsRequest(
