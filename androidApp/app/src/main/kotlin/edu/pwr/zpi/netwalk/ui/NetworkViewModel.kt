@@ -95,10 +95,12 @@ class NetworkViewModel(
     val sinrHistory = mutableStateListOf<Float>()
     private val signalPointLimit = 50
 
+    fun requestIperfInCycles(cycles: Int) {
+        collector.scheduleIperfInCycles(cycles)
+    }
+
     fun requestIperfNow() {
-        forceIperfNow = true
-        lastUlTimeline = emptyList()
-        lastDlTimeline = emptyList()
+        requestIperfInCycles(1)
     }
 
     private val flushMutex = Mutex()
@@ -297,6 +299,9 @@ class NetworkViewModel(
             lastUlTimeline = ulRawJson?.let {
                 parseIperfJsonSafe(it)?.throughputTimeline
             } ?: emptyList()
+        },
+        onScheduleIperfInCycles = { cycles ->
+            requestIperfInCycles(cycles)
         },
     )
 
