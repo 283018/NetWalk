@@ -68,6 +68,8 @@ class DataCollector(
         isCollectionEnabled: () -> Boolean,
         getSessionId: () -> String,
     ) {
+        edu.pwr.zpi.netwalk
+            .logI("DataCollector start requested")
         if (job?.isActive == true) return
 
         job = scope.launch(Dispatchers.Main) {
@@ -162,6 +164,8 @@ class DataCollector(
                         sendRequest(request)
                     }
                 } else {
+                    edu.pwr.zpi.netwalk
+                        .logW("Permissions missing - cannot fetch data.")
                     onStatusUpdate("Permissions missing - cannot fetch data.")
                 }
 

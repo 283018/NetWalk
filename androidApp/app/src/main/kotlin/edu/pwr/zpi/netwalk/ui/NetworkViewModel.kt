@@ -311,6 +311,8 @@ class NetworkViewModel(
                 if (url != currentServerUrl) {
                     client = NetworkClient(url)
                     currentServerUrl = url
+                    edu.pwr.zpi.netwalk
+                        .logI("Server URL updated: $url")
                     lastStatus = "Server URL updated: $url"
                 }
             }
@@ -349,6 +351,8 @@ class NetworkViewModel(
     ) {
         if (!isCollecting) {
             sessionId = UUID.randomUUID().toString()
+            edu.pwr.zpi.netwalk
+                .logI("Collection started, sessionId=$sessionId")
             isCollecting = true
             queuedMeasurements.clear() // just to be sure
         }
@@ -357,6 +361,8 @@ class NetworkViewModel(
     fun stopCollection() {
         if (isCollecting) {
             isCollecting = false
+            edu.pwr.zpi.netwalk
+                .logI("Collection stopped, queuedMeasurements=${queuedMeasurements.size}")
             if (queuedMeasurements.isNotEmpty()) {
                 viewModelScope.launch {
                     val batchRequest = MeasurementRequest(measurements = queuedMeasurements.toList())

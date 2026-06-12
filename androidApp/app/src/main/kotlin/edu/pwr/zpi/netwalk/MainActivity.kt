@@ -55,6 +55,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        edu.pwr.zpi.netwalk
+            .logI("MainActivity created")
 
         tm = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)

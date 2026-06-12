@@ -55,12 +55,16 @@ object IperfRunner {
                         }
 
                         override fun onError(error: String) {
+                            edu.pwr.zpi.netwalk
+                                .logE("Iperf error: $error")
                             if (cont.isActive) {
                                 cont.resumeWithException(RuntimeException(error))
                             }
                         }
 
                         override fun onComplete() {
+                            edu.pwr.zpi.netwalk
+                                .logI("Iperf test completed")
                             if (cont.isActive) {
                                 cont.resume(outputBuffer.toString())
                             }
