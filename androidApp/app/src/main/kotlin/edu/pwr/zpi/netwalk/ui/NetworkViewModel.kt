@@ -3,7 +3,6 @@ package edu.pwr.zpi.netwalk.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -413,7 +412,8 @@ class NetworkViewModel(
 
         // temporary fallback on init, reconstructed form default arguments later
         val finalArray = if (state.iperfIp.isBlank()) arrayOf("iperf3") else commandArray
-        Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
+        edu.pwr.zpi.netwalk
+            .logD("Iperf command array: ${commandArray.joinToString(" ")}")
 
         return finalArray
     }

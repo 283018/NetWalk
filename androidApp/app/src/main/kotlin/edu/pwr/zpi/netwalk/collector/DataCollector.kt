@@ -2,7 +2,6 @@ package edu.pwr.zpi.netwalk.collector
 
 import android.content.Context
 import android.telephony.TelephonyManager
-import android.util.Log
 import edu.pwr.zpi.netwalk.collector.MeasurementConditionChecker
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
@@ -154,7 +153,8 @@ class DataCollector(
                                 remoteCpuScheduleDelayCycles = 2,
                             ),
                             onHighCpuDetected = { item, cpu ->
-                                Log.d("NetWalk", "High CPU item: $item, cpu=$cpu")
+                                edu.pwr.zpi.netwalk
+                                    .logW("High CPU item: $item, cpu=$cpu")
                             },
                             onScheduleIperfInCycles = onScheduleIperfInCycles,
                         )
