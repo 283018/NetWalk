@@ -3,7 +3,6 @@ package edu.pwr.zpi.netwalk.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +15,8 @@ import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
+import edu.pwr.zpi.netwalk.logD
+import edu.pwr.zpi.netwalk.logI
 import edu.pwr.zpi.netwalk.network.NetworkClient
 import edu.pwr.zpi.netwalk.network.PendingBatchStore
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
@@ -96,10 +97,12 @@ class NetworkViewModel(
     private val signalPointLimit = 50
 
     fun requestIperfInCycles(cycles: Int) {
+        logI("[NetworkViewModel: requestIperfInCycles] Scheduling iperf in $cycles cycles")
         collector.scheduleIperfInCycles(cycles)
     }
 
     fun requestIperfNow() {
+        logI("[NetworkViewModel: requestIperfNow] User requested immediate iperf run")
         requestIperfInCycles(1)
     }
 
@@ -272,9 +275,12 @@ class NetworkViewModel(
                 }
             }
 
-            if (settings.sendImmediately.flow.first()) {
+            val sendNow = settings.sendImmediately.flow.first()
+            if (sendNow) {
+                logD("[NetworkViewModel: sendRequest] Dispatching request immediately")
                 sendMeasurementRequest(request)
             } else {
+                logD("[NetworkViewModel: sendRequest] Enqueuing request for later dispatch")
                 queuedMeasurements.addAll(request.measurements)
                 lastStatus = "Queued: ${queuedMeasurements.size} measurements"
 
@@ -312,6 +318,7 @@ class NetworkViewModel(
                 if (url != currentServerUrl) {
                     client = NetworkClient(url)
                     currentServerUrl = url
+                    logI("[NetworkViewModel: init] Server URL updated: $url")
                     lastStatus = "Server URL updated: $url"
                 }
             }
@@ -350,6 +357,7 @@ class NetworkViewModel(
     ) {
         if (!isCollecting) {
             sessionId = UUID.randomUUID().toString()
+            logI("[NetworkViewModel: startCollection] Collection started, sessionId=$sessionId")
             isCollecting = true
             queuedMeasurements.clear() // just to be sure
         }
@@ -358,6 +366,7 @@ class NetworkViewModel(
     fun stopCollection() {
         if (isCollecting) {
             isCollecting = false
+            logI("[NetworkViewModel: stopCollection] Collection stopped, queuedMeasurements=${queuedMeasurements.size}")
             if (queuedMeasurements.isNotEmpty()) {
                 viewModelScope.launch {
                     val batchRequest = MeasurementRequest(measurements = queuedMeasurements.toList())
@@ -413,7 +422,7 @@ class NetworkViewModel(
 
         // temporary fallback on init, reconstructed form default arguments later
         val finalArray = if (state.iperfIp.isBlank()) arrayOf("iperf3") else commandArray
-        Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
+        logD("[NetworkViewModel: iperfCommand] Iperf command array: ${commandArray.joinToString(" ")}")
 
         return finalArray
     }

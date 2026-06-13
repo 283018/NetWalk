@@ -28,6 +28,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import edu.pwr.zpi.netwalk.logI
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.ui.ChartsScreen
 import edu.pwr.zpi.netwalk.ui.IperfLogScreen
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logI("[MainActivity: onCreate] App started.")
 
         tm = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)

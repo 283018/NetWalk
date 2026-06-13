@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import edu.pwr.zpi.netwalk.fetcher.LteNetworkInfo
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.NrNetworkInfo
+import edu.pwr.zpi.netwalk.logI
 import androidx.lifecycle.viewmodel.compose.viewModel as _viewModel
 
 private val BackgroundColor = Color(0xFF121212)
@@ -146,7 +147,10 @@ fun NetworkInfoScreen(
                         )
                     }
 
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(onClick = {
+                        logI("[NetworkInfoScreen: SettingsClicked] User triggered action: Open Settings")
+                        onNavigateToSettings()
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
@@ -164,14 +168,20 @@ fun NetworkInfoScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
-                onClick = { viewModel.startCollection(tm, context) },
+                onClick = {
+                    logI("[NetworkInfoScreen: StartCollection] User triggered action: Start Collection")
+                    viewModel.startCollection(tm, context)
+                },
                 enabled = !viewModel.isCollecting,
                 modifier = Modifier.weight(1f),
             ) {
                 Text("Start")
             }
             Button(
-                onClick = { viewModel.stopCollection() },
+                onClick = {
+                    logI("[NetworkInfoScreen: StopCollection] User triggered action: Stop Collection")
+                    viewModel.stopCollection()
+                },
                 enabled = viewModel.isCollecting,
                 modifier = Modifier.weight(1f),
             ) {

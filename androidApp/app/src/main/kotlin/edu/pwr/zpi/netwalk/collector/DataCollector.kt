@@ -2,7 +2,6 @@ package edu.pwr.zpi.netwalk.collector
 
 import android.content.Context
 import android.telephony.TelephonyManager
-import android.util.Log
 import edu.pwr.zpi.netwalk.collector.MeasurementConditionChecker
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
@@ -10,6 +9,9 @@ import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.iperf.IperfRunner
 import edu.pwr.zpi.netwalk.location.getCurrentLocation
+import edu.pwr.zpi.netwalk.logD
+import edu.pwr.zpi.netwalk.logI
+import edu.pwr.zpi.netwalk.logW
 import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +47,14 @@ class DataCollector(
     private val conditionChecker = MeasurementConditionChecker()
 
     fun scheduleIperfInCycles(cycles: Int) {
-        delayedIperfRequests.add(cycles.coerceAtLeast(1))
+        val c = cycles.coerceAtLeast(1)
+        delayedIperfRequests.add(c)
+        logD(
+            """
+            [DataCollector: scheduleIperfInCycles] Scheduled iperf in $c cycles.
+            Queue=${delayedIperfRequests.joinToString()}
+            """.trimIndent(),
+        )
     }
 
     private fun tickIperfSchedule() {
@@ -69,10 +78,13 @@ class DataCollector(
         isCollectionEnabled: () -> Boolean,
         getSessionId: () -> String,
     ) {
+        logI("[DataCollector: start] DataCollector start requested")
         if (job?.isActive == true) return
 
         job = scope.launch(Dispatchers.Main) {
+            logI("[DataCollector: Loop] Loop lifecycle started.")
             while (isActive) {
+                logD("[DataCollector: Tick] Iteration starting. Fetching passive metrics...")
                 val currentPassiveInterval = passiveIntervalMs.first()
                 val currentIperfInterval = iperfIntervalMs.first()
                 val currentTimout = iperfTimeoutMs.first()
@@ -154,14 +166,16 @@ class DataCollector(
                                 remoteCpuScheduleDelayCycles = 2,
                             ),
                             onHighCpuDetected = { item, cpu ->
-                                Log.d("NetWalk", "High CPU item: $item, cpu=$cpu")
+                                logW("[DataCollector: onHighCpuDetected] High CPU item: $item, cpu=$cpu")
                             },
                             onScheduleIperfInCycles = onScheduleIperfInCycles,
                         )
 
                         sendRequest(request)
+                        logD("[DataCollector: Tick] Iteration completed successfully.")
                     }
                 } else {
+                    logW("[DataCollector: permissions] Permissions missing - cannot fetch data.")
                     onStatusUpdate("Permissions missing - cannot fetch data.")
                 }
 

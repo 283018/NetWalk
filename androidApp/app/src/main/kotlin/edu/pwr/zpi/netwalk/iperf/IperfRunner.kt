@@ -3,6 +3,9 @@ package edu.pwr.zpi.netwalk.iperf
 // disable android optimization for these functions names
 import android.net.TrafficStats
 import androidx.annotation.Keep
+import edu.pwr.zpi.netwalk.logD
+import edu.pwr.zpi.netwalk.logE
+import edu.pwr.zpi.netwalk.logI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -42,6 +45,8 @@ object IperfRunner {
 
     suspend fun runIperfOnce(command: Array<String>): String =
         withContext(Dispatchers.IO) {
+            logI("[IperfRunner: runIperfOnce] Start. Command: ${command.joinToString(" ")}")
+
             TrafficStats.setThreadStatsTag(0x00001000)
 
             try {
@@ -51,16 +56,20 @@ object IperfRunner {
 
                     val callback = object : IperfCallback {
                         override fun onOutput(message: String) {
+                            logD("[IperfRunner: onOutput] $message")
                             outputBuffer.append(message)
                         }
 
                         override fun onError(error: String) {
+                            logD("[IperfRunner: onError] $error")
+                            logE("[IperfRunner: onError] Iperf error: $error")
                             if (cont.isActive) {
                                 cont.resumeWithException(RuntimeException(error))
                             }
                         }
 
                         override fun onComplete() {
+                            logI("[IperfRunner: onComplete] Iperf test completed (exit status unknown)")
                             if (cont.isActive) {
                                 cont.resume(outputBuffer.toString())
                             }
@@ -182,7 +191,7 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
             }
         }
 
-        IperfParsed(
+        val parsed = IperfParsed(
             protocol = protocol,
             // Throughput mbps
             throughputMbps = sumReceived // f flag foes not affect json output
@@ -218,6 +227,12 @@ fun parseIperfJsonSafe(jsonString: String): IperfParsed? =
             rttTimeline = rttPoints,
             rttVarTimeline = rttVarPoints,
         )
-    } catch (_: Exception) {
+
+        val count = timelinePoints.size + rttPoints.size + rttVarPoints.size
+        logD("[IperfRunner: parseIperfJsonSafe] JSON parse success. Timelines extracted: $count")
+
+        parsed
+    } catch (e: Exception) {
+        logE("[IperfRunner: parseIperfJsonSafe] JSON parse failed: ${e.message}", e)
         null
     }
