@@ -1,3 +1,4 @@
+import { authFetch } from "../auth";
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Circle, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -8,8 +9,8 @@ const FALLBACK_CENTER = [51.110556, 17.060556];
 
 async function fetchJson(path, fallback) {
   try {
-    const response = await fetch(`${API_URL}${path}`);
-    if (!response.ok) throw new Error(`API error ${response.status}`);
+    const response = await authFetch(`${API_URL}${path}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
     console.error(error);
