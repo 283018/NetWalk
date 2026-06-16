@@ -68,21 +68,21 @@ services:
   iperf3:
     image: networkstatic/iperf3
     container_name: netwalk-iperf
-    command: ["-s"]
+    command: ["-s", "--one-off", "--idle-timeout", "30"]
     restart: always
     networks:
       - netwalk-network
   iperf3-2:
     image: networkstatic/iperf3
     container_name: netwalk-iperf-2
-    command: ["-s"]
+    command: ["-s", "--one-off", "--idle-timeout", "30"]
     restart: always
     networks:
       - netwalk-network
   iperf3-3:
     image: networkstatic/iperf3
     container_name: netwalk-iperf-3
-    command: ["-s"]
+    command: ["-s", "--one-off", "--idle-timeout", "30"]
     restart: always
     networks:
       - netwalk-network
