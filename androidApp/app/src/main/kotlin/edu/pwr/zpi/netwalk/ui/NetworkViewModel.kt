@@ -3,7 +3,6 @@ package edu.pwr.zpi.netwalk.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import android.telephony.TelephonyManager
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +15,10 @@ import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.iperf.ThroughputPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
+import edu.pwr.zpi.netwalk.logD
+import edu.pwr.zpi.netwalk.logI
 import edu.pwr.zpi.netwalk.network.NetworkClient
+import edu.pwr.zpi.netwalk.network.PendingBatchStore
 import edu.pwr.zpi.netwalk.settings.SettingsRepository
 import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.ui.IperfLogEntry
@@ -70,7 +72,12 @@ class NetworkViewModel(
     var forceIperfNow by mutableStateOf(false)
         private set
 
-    var lastTestTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+    var lastDlTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+        private set
+    var lastUlTimeline by mutableStateOf<List<ThroughputPoint>>(emptyList())
+        private set
+
+    var isServerConnected by mutableStateOf<Boolean?>(null)
         private set
 
     private var sessionId: String = "" // only passive collection for ui displaying
@@ -89,12 +96,19 @@ class NetworkViewModel(
     val sinrHistory = mutableStateListOf<Float>()
     private val signalPointLimit = 50
 
+    fun requestIperfInCycles(cycles: Int) {
+        logI("[NetworkViewModel: requestIperfInCycles] Scheduling iperf in $cycles cycles")
+        collector.scheduleIperfInCycles(cycles)
+    }
+
     fun requestIperfNow() {
-        forceIperfNow = true
-        lastTestTimeline = emptyList()
+        logI("[NetworkViewModel: requestIperfNow] User requested immediate iperf run")
+        requestIperfInCycles(1)
     }
 
     private val flushMutex = Mutex()
+
+    private var batchStore: PendingBatchStore? = null
 
     // exposing specific settings in viewModel as flows
     // I know its ugly, but I dint know it will turn out like this :c
@@ -231,6 +245,19 @@ class NetworkViewModel(
             uiStateLocation = location
             uiStateSystem = system
             updateSignalHistory(network)
+
+            viewModelScope.launch {
+                client?.let { networkClient ->
+                    networkClient
+                        .checkHealth()
+                        .onSuccess { isServerConnected = true }
+                        .onFailure {
+                            isServerConnected = false
+                        }
+                } ?: run {
+                    isServerConnected = false
+                }
+            }
         },
         sendRequest = { request ->
 
@@ -239,7 +266,8 @@ class NetworkViewModel(
                     iperfLogEntries.add(
                         IperfLogEntry(
                             timestamp = item.measured_at,
-                            throughputMbps = item.dl_throughput_mbps,
+                            ulthroughputMbps = item.ul_throughput_mbps,
+                            dlthroughputMbps = item.dl_throughput_mbps,
                             meanRtt = item.dl_mean_rtt,
                             retransmits = item.dl_retransmits,
                         ),
@@ -247,9 +275,12 @@ class NetworkViewModel(
                 }
             }
 
-            if (settings.sendImmediately.flow.first()) {
+            val sendNow = settings.sendImmediately.flow.first()
+            if (sendNow) {
+                logD("[NetworkViewModel: sendRequest] Dispatching request immediately")
                 sendMeasurementRequest(request)
             } else {
+                logD("[NetworkViewModel: sendRequest] Enqueuing request for later dispatch")
                 queuedMeasurements.addAll(request.measurements)
                 lastStatus = "Queued: ${queuedMeasurements.size} measurements"
 
@@ -259,10 +290,7 @@ class NetworkViewModel(
                     val batchList = queuedMeasurements.toList()
                     queuedMeasurements.clear()
                     viewModelScope.launch {
-                        flushMutex.withLock {
-                            val batchRequest = MeasurementRequest(measurements = batchList)
-                            sendGzippedBatch(batchRequest)
-                        }
+                        saveAndFlush(MeasurementRequest(measurements = batchList))
                     }
                 }
             }
@@ -270,15 +298,16 @@ class NetworkViewModel(
         shouldForceIperf = { forceIperfNow },
         onForceIperfHandled = { forceIperfNow = false },
         onIperfRawResult = { ulRawJson, dlRawJson ->
+            lastDlTimeline = dlRawJson?.let {
+                parseIperfJsonSafe(it)?.throughputTimeline
+            } ?: emptyList()
 
-            // TODO: update plot to use both
-            val activeJson = dlRawJson ?: ulRawJson // for now using dl by default
-
-            if (activeJson != null) {
-                parseIperfJsonSafe(activeJson)?.let { parsedData ->
-                    lastTestTimeline = parsedData.throughputTimeline
-                }
-            }
+            lastUlTimeline = ulRawJson?.let {
+                parseIperfJsonSafe(it)?.throughputTimeline
+            } ?: emptyList()
+        },
+        onScheduleIperfInCycles = { cycles ->
+            requestIperfInCycles(cycles)
         },
     )
 
@@ -289,6 +318,7 @@ class NetworkViewModel(
                 if (url != currentServerUrl) {
                     client = NetworkClient(url)
                     currentServerUrl = url
+                    logI("[NetworkViewModel: init] Server URL updated: $url")
                     lastStatus = "Server URL updated: $url"
                 }
             }
@@ -299,6 +329,8 @@ class NetworkViewModel(
         tm: TelephonyManager,
         context: Context,
     ) {
+        ensureBatchStore(context)
+
         if (passiveJobStarted) return
         passiveJobStarted = true
 
@@ -325,6 +357,7 @@ class NetworkViewModel(
     ) {
         if (!isCollecting) {
             sessionId = UUID.randomUUID().toString()
+            logI("[NetworkViewModel: startCollection] Collection started, sessionId=$sessionId")
             isCollecting = true
             queuedMeasurements.clear() // just to be sure
         }
@@ -333,14 +366,14 @@ class NetworkViewModel(
     fun stopCollection() {
         if (isCollecting) {
             isCollecting = false
+            logI("[NetworkViewModel: stopCollection] Collection stopped, queuedMeasurements=${queuedMeasurements.size}")
             if (queuedMeasurements.isNotEmpty()) {
                 viewModelScope.launch {
                     val batchRequest = MeasurementRequest(measurements = queuedMeasurements.toList())
                     queuedMeasurements.clear()
                     lastStatus = "Sending batch of ${batchRequest.measurements.size} measurements"
 
-                    sendGzippedBatch(batchRequest)
-                    // sendMeasurementRequest(batchRequest)
+                    saveAndFlush(batchRequest)
                 }
             }
         }
@@ -389,8 +422,54 @@ class NetworkViewModel(
 
         // temporary fallback on init, reconstructed form default arguments later
         val finalArray = if (state.iperfIp.isBlank()) arrayOf("iperf3") else commandArray
-        Log.d("NetWalk", "Iperf command array: ${commandArray.joinToString(" ")}")
+        logD("[NetworkViewModel: iperfCommand] Iperf command array: ${commandArray.joinToString(" ")}")
 
         return finalArray
+    }
+
+    private fun ensureBatchStore(context: Context) {
+        if (batchStore == null) {
+            batchStore = PendingBatchStore(context.applicationContext)
+        }
+    }
+
+    private fun gzippedBytes(request: MeasurementRequest): ByteArray {
+        val jsonBytes = Json
+            .encodeToString(MeasurementRequest.serializer(), request)
+            .toByteArray(Charsets.UTF_8)
+
+        return ByteArrayOutputStream().use { bos ->
+            GZIPOutputStream(bos).use { gzip -> gzip.write(jsonBytes) }
+            bos.toByteArray()
+        }
+    }
+
+    private suspend fun trySendGzippedBytes(bytes: ByteArray): Boolean =
+        client?.sendGzippedUpdate(bytes)?.isSuccess == true
+
+    private suspend fun flushStoredBatches() {
+        val store = batchStore ?: return
+
+        val files = store.listFilesSorted()
+        for (file in files) {
+            val ok = trySendGzippedBytes(file.readBytes())
+            if (ok) {
+                store.delete(file)
+            } else {
+                lastStatus = "Batch send failed, cached for next send event."
+                return
+            }
+        }
+    }
+
+    private suspend fun saveAndFlush(request: MeasurementRequest) {
+        val store = batchStore ?: return
+
+        // save current batch first, so its never lost
+        store.save(gzippedBytes(request))
+
+        flushMutex.withLock {
+            flushStoredBatches()
+        }
     }
 }

@@ -58,5 +58,5 @@ class SettingsRepository(
     val sendImmediately = PreferenceItem(booleanPreferencesKey("send_immediately"), false)
 
     // not exposed to ui
-    val maxQueueSize = PreferenceItem(longPreferencesKey("max_queue_size"), 100L)
+    val maxQueueSize = PreferenceItem(longPreferencesKey("max_queue_size"), 30L)
 }

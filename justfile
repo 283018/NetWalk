@@ -15,6 +15,10 @@ run-hooks:
 update-hooks:
     pre-commit autoupdate
 
+# tworzy env-file
+makeenv:
+    cp ./.env.example ./.env
+
 # odpal komendy z subfolderu backend
 mod backend
 # odpal komendy z subfolderu frontend

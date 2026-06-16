@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import edu.pwr.zpi.netwalk.logD
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -22,11 +23,18 @@ suspend fun getCurrentLocation(context: Context): Pair<Double?, Double?> =
                 null,
             ).addOnSuccessListener { location ->
                 if (location != null) {
+                    logD(
+                        """
+                        [LocationFetcher: getCurrentLocation] Location obtained: ${location.latitude}, ${location.longitude}
+                        """.trimIndent(),
+                    )
                     continuation.resume(Pair(location.latitude, location.longitude))
                 } else {
+                    logD("[LocationFetcher: getCurrentLocation] No location returned")
                     continuation.resume(Pair(null, null))
                 }
-            }.addOnFailureListener {
+            }.addOnFailureListener { ex ->
+                logD("[LocationFetcher: getCurrentLocation] Failed to obtain location: ${ex.message}")
                 continuation.resume(Pair(null, null))
             }
     }

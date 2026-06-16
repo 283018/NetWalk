@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -48,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import edu.pwr.zpi.netwalk.fetcher.LteNetworkInfo
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.NrNetworkInfo
+import edu.pwr.zpi.netwalk.logI
 import androidx.lifecycle.viewmodel.compose.viewModel as _viewModel
 
 private val BackgroundColor = Color(0xFF121212)
@@ -106,7 +109,7 @@ fun NetworkInfoScreen(
             Row(
                 modifier = Modifier
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp)
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -117,8 +120,43 @@ fun NetworkInfoScreen(
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                 )
-                IconButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(end = 8.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        val (statusColor, statusLabel) = when (viewModel.isServerConnected) {
+                            true -> Color(0xFF81C784) to "ONLINE"
+                            false -> Color(0xFFE57373) to "OFFLINE"
+                            null -> Color(0xFFFFD54F) to "CHECKING"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(statusColor, shape = CircleShape),
+                        )
+                        Text(
+                            text = statusLabel,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = statusColor,
+                        )
+                    }
+
+                    IconButton(onClick = {
+                        logI("[NetworkInfoScreen: SettingsClicked] User triggered action: Open Settings")
+                        onNavigateToSettings()
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color.White,
+                        )
+                    }
                 }
             }
         }
@@ -130,14 +168,20 @@ fun NetworkInfoScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
-                onClick = { viewModel.startCollection(tm, context) },
+                onClick = {
+                    logI("[NetworkInfoScreen: StartCollection] User triggered action: Start Collection")
+                    viewModel.startCollection(tm, context)
+                },
                 enabled = !viewModel.isCollecting,
                 modifier = Modifier.weight(1f),
             ) {
                 Text("Start")
             }
             Button(
-                onClick = { viewModel.stopCollection() },
+                onClick = {
+                    logI("[NetworkInfoScreen: StopCollection] User triggered action: Stop Collection")
+                    viewModel.stopCollection()
+                },
                 enabled = viewModel.isCollecting,
                 modifier = Modifier.weight(1f),
             ) {

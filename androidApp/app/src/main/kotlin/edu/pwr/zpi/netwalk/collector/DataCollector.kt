@@ -2,12 +2,16 @@ package edu.pwr.zpi.netwalk.collector
 
 import android.content.Context
 import android.telephony.TelephonyManager
+import edu.pwr.zpi.netwalk.collector.MeasurementConditionChecker
 import edu.pwr.zpi.netwalk.fetcher.MeasurementRequest
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoData
 import edu.pwr.zpi.netwalk.fetcher.NetworkInfoFetcher
 import edu.pwr.zpi.netwalk.fetcher.toMeasurementsRequest
 import edu.pwr.zpi.netwalk.iperf.IperfRunner
 import edu.pwr.zpi.netwalk.location.getCurrentLocation
+import edu.pwr.zpi.netwalk.logD
+import edu.pwr.zpi.netwalk.logI
+import edu.pwr.zpi.netwalk.logW
 import edu.pwr.zpi.netwalk.system.SystemData
 import edu.pwr.zpi.netwalk.system.SystemInfoFetcher
 import kotlinx.coroutines.CoroutineScope
@@ -30,11 +34,40 @@ class DataCollector(
     private val shouldForceIperf: () -> Boolean,
     private val onForceIperfHandled: () -> Unit,
     private val onIperfRawResult: (String?, String?) -> Unit,
+    private val onScheduleIperfInCycles: (Int) -> Unit,
 ) {
     private var job: Job? = null
     private var lastIperfTime = 0L
 
     private var lastSessionId: String? = null
+
+    private val delayedIperfRequests = mutableListOf<Int>() // each item - how many cycles until iperf should run
+    private var readyForcedRuns = 0 // if several requests comes at single cycle, keep them queued
+
+    private val conditionChecker = MeasurementConditionChecker()
+
+    fun scheduleIperfInCycles(cycles: Int) {
+        val c = cycles.coerceAtLeast(1)
+        delayedIperfRequests.add(c)
+        logD(
+            """
+            [DataCollector: scheduleIperfInCycles] Scheduled iperf in $c cycles.
+            Queue=${delayedIperfRequests.joinToString()}
+            """.trimIndent(),
+        )
+    }
+
+    private fun tickIperfSchedule() {
+        if (delayedIperfRequests.isEmpty()) return
+
+        for (i in delayedIperfRequests.indices) {
+            delayedIperfRequests[i] -= 1
+        }
+
+        val dueCount = delayedIperfRequests.count { it <= 0 }
+        delayedIperfRequests.removeAll { it <= 0 }
+        readyForcedRuns += dueCount
+    }
 
     fun start(
         tm: TelephonyManager,
@@ -45,10 +78,13 @@ class DataCollector(
         isCollectionEnabled: () -> Boolean,
         getSessionId: () -> String,
     ) {
+        logI("[DataCollector: start] DataCollector start requested")
         if (job?.isActive == true) return
 
         job = scope.launch(Dispatchers.Main) {
+            logI("[DataCollector: Loop] Loop lifecycle started.")
             while (isActive) {
+                logD("[DataCollector: Tick] Iteration starting. Fetching passive metrics...")
                 val currentPassiveInterval = passiveIntervalMs.first()
                 val currentIperfInterval = iperfIntervalMs.first()
                 val currentTimout = iperfTimeoutMs.first()
@@ -69,18 +105,25 @@ class DataCollector(
                         }
 
                         val now = System.currentTimeMillis()
+
+                        tickIperfSchedule()
+
                         // TODO: add check for busy iperf server OR server-side connection manager / port rotation
                         // TODO: add repeat with delay if cpu is too high
-                        var shouldRunIperf = now - lastIperfTime > currentIperfInterval
+                        var regularDue = now - lastIperfTime > currentIperfInterval
+                        val forcedDue = readyForcedRuns > 0
 
-                        if (shouldForceIperf()) {
-                            shouldRunIperf = true
-                            onForceIperfHandled()
-                        }
+                        var iperfUploadResult: String? = null
+                        var iperfDownloadResult: String? = null
 
-                        val (iperfUploadResult, iperfDownloadResult) = if (shouldRunIperf) {
+                        if (regularDue || forcedDue) {
+                            if (forcedDue) {
+                                readyForcedRuns -= 1
+                            }
+
                             lastIperfTime = now
-                            try {
+
+                            val (ul, dl) = try {
                                 withContext(Dispatchers.IO) {
                                     val ulResuls = withTimeoutOrNull(currentTimout) {
                                         // named args are prohibited in labdas
@@ -94,12 +137,13 @@ class DataCollector(
                             } catch (e: Exception) {
                                 Pair(null, null)
                             }
-                        } else {
-                            Pair(null, null)
-                        }
 
-                        if (iperfUploadResult != null || iperfDownloadResult != null) {
-                            onIperfRawResult(iperfUploadResult, iperfDownloadResult)
+                            iperfUploadResult = ul
+                            iperfDownloadResult = dl
+
+                            if (iperfUploadResult != null || iperfDownloadResult != null) {
+                                onIperfRawResult(iperfUploadResult, iperfDownloadResult)
+                            }
                         }
 
                         val request = networkData.toMeasurementsRequest(
@@ -112,9 +156,26 @@ class DataCollector(
                             measuredAtNow = now,
                         )
 
+                        conditionChecker.check(
+                            measurements = request.measurements,
+                            // if we want to add server-side conditions it can be passed directly from viewModel
+                            params = MeasurementConditionParams(
+                                hostCpuThreshold = 95.0,
+                                hostCpuScheduleDelayCycles = 2,
+                                remoteCpuThreshold = 95.0,
+                                remoteCpuScheduleDelayCycles = 2,
+                            ),
+                            onHighCpuDetected = { item, cpu ->
+                                logW("[DataCollector: onHighCpuDetected] High CPU item: $item, cpu=$cpu")
+                            },
+                            onScheduleIperfInCycles = onScheduleIperfInCycles,
+                        )
+
                         sendRequest(request)
+                        logD("[DataCollector: Tick] Iteration completed successfully.")
                     }
                 } else {
+                    logW("[DataCollector: permissions] Permissions missing - cannot fetch data.")
                     onStatusUpdate("Permissions missing - cannot fetch data.")
                 }
 

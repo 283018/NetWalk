@@ -8,8 +8,4 @@ install:
 
 # start developer serwer
 dev:
-    npm run dev
-
-# zbuduj serwer
-build:
-    npm run build
+    npm run start

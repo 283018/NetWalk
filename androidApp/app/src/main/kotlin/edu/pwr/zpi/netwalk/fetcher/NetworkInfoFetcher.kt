@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import edu.pwr.zpi.netwalk.iperf.IperfParsed
 import edu.pwr.zpi.netwalk.iperf.RttPoint
 import edu.pwr.zpi.netwalk.iperf.parseIperfJsonSafe
+import edu.pwr.zpi.netwalk.logD
 import edu.pwr.zpi.netwalk.system.SystemData
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
@@ -401,6 +402,13 @@ object NetworkInfoFetcher {
                             else -> "${tm.dataNetworkType}"
                         }
 
+                    logD(
+                        """
+                        [NetworkInfoFetcher: onCellInfo] Found: ${lteCells.size} LTE,
+                        ${nrCells.size} NR; networkType=$networkType
+                        """.trimIndent(),
+                    )
+
                     onResult(NetworkInfoData(networkType, lteCells, nrCells))
                 }
 
@@ -408,6 +416,7 @@ object NetworkInfoFetcher {
                     errorCode: Int,
                     detail: Throwable?,
                 ) {
+                    logD("[NetworkInfoFetcher: onError] Error code $errorCode: ${detail?.message}")
                     onResult(
                         NetworkInfoData(
                             "Cell info error $errorCode:" +

@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import edu.pwr.zpi.netwalk.logD
 
 data class SystemData(
     val android_id: String?,
@@ -14,12 +15,19 @@ data class SystemData(
 )
 
 object SystemInfoFetcher {
-    fun fetchFullSystemInfo(context: Context): SystemData =
-        SystemData(
+    fun fetchFullSystemInfo(context: Context): SystemData {
+        val data = SystemData(
             android_id = getAndroidId(context),
             battery_level = getBatteryLevel(context),
             battery_temp = getBatteryTemp(context),
         )
+        logD(
+            """
+            [SystemInfoFetcher: fetchFullSystemInfo] android_id=${data.android_id}, battery_level=${data.battery_level}, battery_temp=${data.battery_temp}
+            """.trimIndent(),
+        )
+        return data
+    }
 
     /* Android ID - 64 bitowy identyfikator unikalny dla każdego użytkownika i każdej aplikacji - może się zmienić
        jedynie, jeśli użytkownik zresetuje telefon do ustawień fabrycznych

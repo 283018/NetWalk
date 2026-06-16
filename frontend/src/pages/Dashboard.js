@@ -1,3 +1,4 @@
+import { authFetch } from "../auth";
 import { useEffect, useState } from "react";
 import Heatmap from "../components/Heatmap";
 import KPICard from "../components/KPICard";
@@ -15,8 +16,8 @@ const EMPTY_KPI = {
 
 async function fetchJson(path, fallback) {
   try {
-    const response = await fetch(`${API_URL}${path}`);
-    if (!response.ok) throw new Error(`API error ${response.status}`);
+    const response = await authFetch(`${API_URL}${path}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
     console.error(error);

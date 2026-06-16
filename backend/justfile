@@ -17,10 +17,6 @@ default:
 install:
     uv venv && uv sync --all-extras
 
-# tworzy env-file
-makeenv:
-    cp ./.env.example ./.env
-
 # odpal code check
 check:
     uv run ruff check
@@ -37,10 +33,6 @@ lint:
 db-up:
     docker compose up -d timescaledb
 
-# zatrzymaj contener bazy
-db-down:
-    docker compose stop timescaledb
-
 # zatrzymaj kontener bazy i usuń dane
 db-reset:
    docker compose down -v timescaledb
@@ -49,13 +41,17 @@ db-reset:
 db-shell:
     @docker compose exec timescaledb psql -U {{env_var("POSTGRES_USER")}} -d {{env_var("POSTGRES_DB")}}
 
+
+# zrób bakup calej bazy
+db-dump file="netwalk.bak":
+    @docker compose exec -T timescaledb pg_dump -U {{env_var("POSTGRES_USER")}} -F c -d {{env_var("POSTGRES_DB")}} > {{file}}
+
+# załaduj backup bazy
+db-load file="netwalk.bak":
+    @docker compose exec -T timescaledb pg_restore -U {{env_var("POSTGRES_USER")}} --clean --if-exists -d {{env_var("POSTGRES_DB")}} < {{file}}
+
 # SERVER
 # ======
-
-# odpala server w kontenerzr
-serve-docker:
-    @echo "Starting server in contener."
-    docker compose up --build --no-deps api
 
 # odpal shell w kontenerze api
 api-shell:
@@ -69,6 +65,11 @@ api-shell:
 up-full:
     @echo "Starting full stack in docker"
     docker compose up --build
+
+
+# zatrzymaj cały serwis ale zachowaj baze
+down:
+    docker compose down
 
 # zatrzymaj cały serwis i usuń dane
 down-remove:
@@ -101,7 +102,7 @@ test-all: test-health test-batch test-get
 # UTILITIES
 # =========
 
-# pokaż status serwisóœ
+# pokaż status serwisóœ
 status:
     docker compose ps
 

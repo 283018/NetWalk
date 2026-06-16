@@ -1,11 +1,13 @@
 # ruff: noqa: I001
 import gzip
 import json
-from datetime import datetime, UTC
+import os
+from datetime import datetime
+import secrets
 from typing import Annotated
-from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from geoalchemy2 import functions as geo_func
 from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
@@ -16,6 +18,7 @@ from app.analytics import (
     device_sessions,
     get_heatmap_points,
     get_high_cpu_threshold,
+    get_route_anomaly,
     get_uplink_downlink_stats,
     kpi_stats,
     last_measurement,
@@ -27,6 +30,33 @@ from app.database import get_db
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
+security = HTTPBasic(auto_error=True)
+
+
+# Basic Auth
+def verify_basic_auth(
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+) -> bool:
+    expected_username = os.environ.get("BASIC_AUTH_USERNAME")
+    expected_password = os.environ.get("BASIC_AUTH_PASSWORD")
+
+    if not expected_username or not expected_password:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Credentials were not configured.",
+        )
+
+    is_username_correct = secrets.compare_digest(credentials.username, expected_username)
+    is_password_correct = secrets.compare_digest(credentials.password, expected_password)
+
+    if not (is_username_correct and is_password_correct):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Wrong username or password.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+    return True
 
 
 def measurement_filters(  # noqa: PLR0913
@@ -116,6 +146,7 @@ def get_measurements(
     db: DbSession,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
+    _: None = Depends(verify_basic_auth),
 ):
     return (
         db.query(models.Measurement)
@@ -145,6 +176,7 @@ def get_measurements_filtered(  # noqa: PLR0913
     max_longitude: float | None = None,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
+    _: None = Depends(verify_basic_auth),
 ):
     query = db.query(models.Measurement)
 
@@ -176,6 +208,7 @@ def get_measurements_paginated(
     db: DbSession,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
+    _: None = Depends(verify_basic_auth),
 ):
     total = db.query(func.count(models.Measurement.id)).scalar()
     items = (
@@ -192,7 +225,10 @@ def get_measurements_paginated(
 
 
 @router.get("/analysis/average-signal")
-def get_avg_signal(db: DbSession):
+def get_avg_signal(
+    db: DbSession,
+    _: None = Depends(verify_basic_auth),
+):
     return average_signal(db)
 
 
@@ -201,6 +237,7 @@ def get_kpi(
     db: DbSession,
     network_type: str | None = None,
     android_id: str | None = None,
+    _: None = Depends(verify_basic_auth),
 ):
     return kpi_stats(db, network_type=network_type, android_id=android_id)
 
@@ -213,6 +250,7 @@ def get_heatmap(  # noqa: PLR0913
     android_id: str | None = None,
     network_type: str | None = None,
     limit: int = Query(default=1000, le=5000),
+    _: None = Depends(verify_basic_auth),
 ):
     return get_heatmap_points(
         db=db,
@@ -225,12 +263,18 @@ def get_heatmap(  # noqa: PLR0913
 
 
 @router.get("/analysis/last-measurement")
-def get_last_measurement(db: DbSession):
+def get_last_measurement(
+    db: DbSession,
+    _: None = Depends(verify_basic_auth),
+):
     return last_measurement(db)
 
 
 @router.get("/devices")
-def get_devices(db: DbSession):
+def get_devices(
+    db: DbSession,
+    _: None = Depends(verify_basic_auth),
+):
     return list_devices(db)
 
 
@@ -239,12 +283,16 @@ def get_device_sessions(
     android_id: str,
     db: DbSession,
     limit: int = Query(default=5, le=20),
+    _: None = Depends(verify_basic_auth),
 ):
     return device_sessions(db, android_id=android_id, limit=limit)
 
 
 @router.post("/measurements/batch", response_model=schemas.BatchResponse)
-async def create_measurements_batch(request: Request, db: DbSession):
+async def create_measurements_batch(
+    request: Request,
+    db: DbSession,
+):
     raw_body = await request.body()
 
     if not raw_body:
@@ -299,22 +347,11 @@ async def create_measurements_batch(request: Request, db: DbSession):
         raise HTTPException(status_code=500, detail=f"Database insert failed: {e!s}") from e
 
 
-@router.post("/sessions/start", response_model=schemas.SessionResponse)
-def start_session():
-    new_session_id = uuid4()
-    return schemas.SessionResponse(
-        session_id=new_session_id,
-        started_at=datetime.now(tz=UTC),
-    )
-
-
-@router.post("/sessions/{session_id}/stop")
-def stop_session(session_id: str):
-    return {"status": "ok", "message": f"Session {session_id} stopped"}
-
-
 @router.get("/sessions")
-def get_sessions(db: DbSession):
+def get_sessions(
+    db: DbSession,
+    _: None = Depends(verify_basic_auth),
+):
     sessions = (
         db.query(
             models.Measurement.session_id,
@@ -349,6 +386,7 @@ def get_measurements_stats(  # noqa: PLR0913
     max_latitude: float | None = None,
     min_longitude: float | None = None,
     max_longitude: float | None = None,
+    _: None = Depends(verify_basic_auth),
 ):
     q = db.query(models.Measurement)
 
@@ -444,17 +482,12 @@ def get_measurements_stats(  # noqa: PLR0913
 )
 def get_measurements_with_cpu_filter(
     db: DbSession,
-    cpu_filter: str = Query(default="all"),  # "all", "without_high", "only_high"
+    cpu_filter: str = Query(default="all"),
     cpu_threshold: float = Query(default=50.0),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=1000),
+    _: None = Depends(verify_basic_auth),
 ):
-    """
-    cpu_filter:
-    - "all": wszystkie pomiary
-    - "without_high": bez pomiarów ze zbyt wysokim CPU
-    - "only_high": tylko pomiary ze zbyt wysokim CPU
-    """
     query = db.query(models.Measurement)
 
     if cpu_filter == "without_high":
@@ -463,9 +496,7 @@ def get_measurements_with_cpu_filter(
         query = query.filter(models.Measurement.host_cpu >= cpu_threshold)
 
     total = query.count()
-
     items = query.order_by(models.Measurement.measured_at.desc()).offset(skip).limit(limit).all()
-
     serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
 
     return schemas.PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
@@ -476,8 +507,8 @@ def get_kpi_with_cpu_filter(
     db: DbSession,
     cpu_filter: str = Query(default="all"),
     cpu_threshold: float = Query(default=50.0),
+    _: None = Depends(verify_basic_auth),
 ):
-    """KPI z uwzględnieniem filtrowania CPU"""
     query = db.query(models.Measurement)
 
     if cpu_filter == "without_high":
@@ -494,22 +525,21 @@ def get_kpi_with_cpu_filter(
     return {
         "cpu_filter": cpu_filter,
         "cpu_threshold": cpu_threshold,
-        "avg_throughput": float(result.avg_throughput)
-        if result and result.avg_throughput
-        else None,
+        "avg_throughput": float(result.avg_throughput) if result and result.avg_throughput else None,
         "avg_latency": float(result.avg_latency) if result and result.avg_latency else None,
         "avg_rsrp": float(result.avg_rsrp) if result and result.avg_rsrp else None,
     }
 
 
 @router.get("/analysis/propagation")
-def get_propagation_map(  # noqa: PLR0913
+def get_propagation_map(
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     android_id: str | None = None,
     session_id: str | None = None,
     network_type: str | None = None,
     resolution: int = Query(default=100, le=100),
+    _: None = Depends(verify_basic_auth),
 ):
     return propagation_map(
         db=db,
@@ -525,12 +555,16 @@ def get_propagation_map(  # noqa: PLR0913
 def get_uplink_downlink_stats_endpoint(
     db: DbSession,
     session_id: str | None = None,
+    _: None = Depends(verify_basic_auth),
 ):
-    return get_uplink_downlink_stats(db, session_id)  # bez importu wewnątrz
+    return get_uplink_downlink_stats(db, session_id)
 
 
 @router.get("/analysis/cpu-threshold")
-def get_cpu_threshold_endpoint(db: DbSession):
+def get_cpu_threshold_endpoint(
+    db: DbSession,
+    _: None = Depends(verify_basic_auth),
+):
     return {"threshold": get_high_cpu_threshold(), "categories": measurements_by_cpu_category(db)}
 
 
@@ -539,7 +573,7 @@ def get_route_anomaly_endpoint(
     db: DbSession,
     lat: float = Query(..., description="Szerokość geograficzna środka trasy"),
     lon: float = Query(..., description="Długość geograficzna środka trasy"),
-    radius_km: float = Query(default=1.2, description="Promień wyszukiwania anomalii w km")
+    radius_km: float = Query(default=1.2, description="Promień wyszukiwania anomalii w km"),
+    _: None = Depends(verify_basic_auth),
 ):
-    from app.analytics import get_route_anomaly
     return get_route_anomaly(db, lat=lat, lon=lon, radius_km=radius_km)

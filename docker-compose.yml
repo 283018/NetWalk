@@ -10,23 +10,22 @@ services:
       - "5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./backend/init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d ${POSTGRES_DB} -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - netwalk-network
 
-
   api:
     build:
-      context: .
+      context: ./backend
       target: runner
     container_name: netwalk-api
     ports:
-      - "8000:8000"
+      - "8000:8000" # api exposed to host at 8000
     env_file:
       - .env
     environment:
@@ -49,10 +48,22 @@ services:
     networks:
       - netwalk-network
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: netwalk-frontend
+    ports:
+      - "8080:80" # nginx exposed to host at 8000
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    networks:
+      - netwalk-network
+
   iperf3:
     image: networkstatic/iperf3
     container_name: netwalk-iperf
-    # android możee ucinać połączenia na niestandartowych portach, więc reroutujemy do 443
     ports:
       - "5201:5201/tcp"
       - "5201:5201/udp"
@@ -66,27 +77,28 @@ services:
     ports:
       - "5202:5201/tcp"
       - "5202:5201/udp"
-    command: [ "-s" ]
+    command: ["-s"]
     restart: always
     networks:
       - netwalk-network
-
   iperf3-3:
     image: networkstatic/iperf3
     container_name: netwalk-iperf-3
     ports:
       - "5203:5201/tcp"
       - "5203:5201/udp"
-    command: [ "-s" ]
+    command: ["-s"]
     restart: always
     networks:
       - netwalk-network
 
   tests:
     build:
-      context: .
+      context: ./backend
       target: test
     container_name: netwalk-tests
+    env_file:
+      - .env
     environment:
       TEST_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/netwalk_test
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/netwalk_test
