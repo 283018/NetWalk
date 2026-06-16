@@ -51,7 +51,7 @@ services:
       - netwalk-network
 
   iperf-proxy:
-    image: nginx:1.31-alpine3.23
+    image: openresty/openresty:1.25.3.1-alpine-fat-amd64
     container_name: netwalk-iperf-proxy
     ports:
       - "5201:5201/tcp"
