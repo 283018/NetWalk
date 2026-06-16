@@ -389,3 +389,32 @@ def get_uplink_downlink_stats(db: Session, session_id: str | None = None):
             else None,
         },
     }
+
+def get_route_anomaly(db: Session, lat: float, lon: float, radius_km: float = 1.2):
+    """
+    FILTROWANIE DLA TRAS:
+    Szuka najbliższego punktu o krytycznie słabym sygnale (RSRP < -100)
+    w zadanym promieniu (w kilometrach) od środka trasy technika.
+    """
+    center_geo = func.ST_SetSRID(func.ST_MakePoint(lon, lat), 4326)
+    
+    row = db.query(
+        geo_func.ST_Y(geo_func.ST_GeomFromWKB(Measurement.location)).label("latitude"),
+        geo_func.ST_X(geo_func.ST_GeomFromWKB(Measurement.location)).label("longitude"),
+        Measurement.rsrp
+    ).filter(
+        Measurement.location.isnot(None),
+        Measurement.rsrp < -100,
+        geo_func.ST_Distance(Measurement.location, center_geo) <= (radius_km * 1000)
+    ).order_by(
+        Measurement.rsrp.asc()
+    ).first()
+
+    if not row:
+        return None
+
+    return {
+        "latitude": _to_float(row.latitude),
+        "longitude": _to_float(row.longitude),
+        "rsrp": row.rsrp
+    }

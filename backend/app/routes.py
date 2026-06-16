@@ -18,6 +18,7 @@ from app.analytics import (
     device_sessions,
     get_heatmap_points,
     get_high_cpu_threshold,
+    get_route_anomaly,
     get_uplink_downlink_stats,
     kpi_stats,
     last_measurement,
@@ -502,9 +503,7 @@ def get_measurements_with_cpu_filter(
         query = query.filter(models.Measurement.host_cpu >= cpu_threshold)
 
     total = query.count()
-
     items = query.order_by(models.Measurement.measured_at.desc()).offset(skip).limit(limit).all()
-
     serialized_items = [schemas.MeasurementResponse.model_validate(item) for item in items]
 
     return schemas.PaginatedResponse(items=serialized_items, total=total, skip=skip, limit=limit)
@@ -534,16 +533,14 @@ def get_kpi_with_cpu_filter(
     return {
         "cpu_filter": cpu_filter,
         "cpu_threshold": cpu_threshold,
-        "avg_throughput": float(result.avg_throughput)
-        if result and result.avg_throughput
-        else None,
+        "avg_throughput": float(result.avg_throughput) if result and result.avg_throughput else None,
         "avg_latency": float(result.avg_latency) if result and result.avg_latency else None,
         "avg_rsrp": float(result.avg_rsrp) if result and result.avg_rsrp else None,
     }
 
 
 @router.get("/analysis/propagation")
-def get_propagation_map(  # noqa: PLR0913
+def get_propagation_map(
     db: DbSession,
     parameter: str = Query(default="rsrp"),
     android_id: str | None = None,
@@ -568,7 +565,7 @@ def get_uplink_downlink_stats_endpoint(
     session_id: str | None = None,
     _: None = Depends(verify_basic_auth),
 ):
-    return get_uplink_downlink_stats(db, session_id)  # bez importu wewnątrz
+    return get_uplink_downlink_stats(db, session_id)
 
 
 @router.get("/analysis/cpu-threshold")
@@ -577,3 +574,14 @@ def get_cpu_threshold_endpoint(
     _: None = Depends(verify_basic_auth),
 ):
     return {"threshold": get_high_cpu_threshold(), "categories": measurements_by_cpu_category(db)}
+
+
+@router.get("/analysis/route-anomaly")
+def get_route_anomaly_endpoint(
+    db: DbSession,
+    lat: float = Query(..., description="Szerokość geograficzna środka trasy"),
+    lon: float = Query(..., description="Długość geograficzna środka trasy"),
+    radius_km: float = Query(default=1.2, description="Promień wyszukiwania anomalii w km"),
+    _: None = Depends(verify_basic_auth),
+):
+    return get_route_anomaly(db, lat=lat, lon=lon, radius_km=radius_km)
